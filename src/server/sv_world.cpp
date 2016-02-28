@@ -372,7 +372,7 @@ SV_AreaEntities_r
 
 ====================
 */
-void SV_AreaEntities_r( worldSector_t *node, areaParms_t *ap ) {
+void SV_AreaEntities_r( worldSector_t *node, areaParms_t *ap, int dimensions ) {
 	svEntity_t	*check, *next;
 	sharedEntity_t *gcheck;
 	int			count;
@@ -380,9 +380,18 @@ void SV_AreaEntities_r( worldSector_t *node, areaParms_t *ap ) {
 	count = 0;
 
 	for ( check = node->entities  ; check ; check = next ) {
+		int					num = check - sv.svEntities;
+		mvsharedEntity_t	*mvcheck = MV_EntityNum( num );
+
 		next = check->nextEntityInWorldSector;
 
-		gcheck = SV_GEntityForSvEntity( check );
+		if ( sv.gentitiesMV != NULL && sv.gentitySizeMV > 0 ) {
+			if (!(mvcheck->dimensions & dimensions)) {
+				continue;
+			}
+		}
+
+		gcheck = SV_GentityNum( num );
 
 		if ( gcheck->r.absmin[0] > ap->maxs[0]
 		|| gcheck->r.absmin[1] > ap->maxs[1]
@@ -408,10 +417,10 @@ void SV_AreaEntities_r( worldSector_t *node, areaParms_t *ap ) {
 
 	// recurse down both sides
 	if ( ap->maxs[node->axis] > node->dist ) {
-		SV_AreaEntities_r ( node->children[0], ap );
+		SV_AreaEntities_r ( node->children[0], ap, dimensions );
 	}
 	if ( ap->mins[node->axis] < node->dist ) {
-		SV_AreaEntities_r ( node->children[1], ap );
+		SV_AreaEntities_r ( node->children[1], ap, dimensions );
 	}
 }
 
@@ -420,7 +429,7 @@ void SV_AreaEntities_r( worldSector_t *node, areaParms_t *ap ) {
 SV_AreaEntities
 ================
 */
-int SV_AreaEntities( const vec3_t mins, const vec3_t maxs, int *entityList, int maxcount ) {
+int SV_AreaEntities( const vec3_t mins, const vec3_t maxs, int *entityList, int maxcount, int dimensions ) {
 	areaParms_t		ap;
 
 	ap.mins = mins;
@@ -429,7 +438,7 @@ int SV_AreaEntities( const vec3_t mins, const vec3_t maxs, int *entityList, int 
 	ap.count = 0;
 	ap.maxcount = maxcount;
 
-	SV_AreaEntities_r( sv_worldSectors, &ap );
+	SV_AreaEntities_r( sv_worldSectors, &ap, dimensions );
 
 	return ap.count;
 }
@@ -511,7 +520,7 @@ SV_ClipMoveToEntities
 
 ====================
 */
-void SV_ClipMoveToEntities( moveclip_t *clip ) {
+void SV_ClipMoveToEntities( moveclip_t *clip, int dimensions ) {
 	int			i, num;
 	int			touchlist[MAX_GENTITIES];
 	sharedEntity_t *touch;
@@ -521,7 +530,7 @@ void SV_ClipMoveToEntities( moveclip_t *clip ) {
 	float		*origin, *angles;
 	int			thisOwnerShared = 1;
 
-	num = SV_AreaEntities( clip->boxmins, clip->boxmaxs, touchlist, MAX_GENTITIES);
+	num = SV_AreaEntities( clip->boxmins, clip->boxmaxs, touchlist, MAX_GENTITIES, dimensions);
 
 	if ( clip->passEntityNum != ENTITYNUM_NONE ) {
 		passOwnerNum = ( SV_GentityNum( clip->passEntityNum ) )->r.ownerNum;
@@ -689,7 +698,7 @@ passEntityNum and entities owned by passEntityNum are explicitly not checked.
 /*
 Ghoul2 Insert Start
 */
-void SV_Trace( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int passEntityNum, int contentmask, int capsule, int traceFlags, int useLod ) {
+void SV_Trace( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int passEntityNum, int contentmask, int capsule, int traceFlags, int useLod, int dimensions ) {
 /*
 Ghoul2 Insert End
 */
@@ -745,7 +754,7 @@ Ghoul2 Insert End
 	}
 
 	// clip to other solid entities
-	SV_ClipMoveToEntities ( &clip );
+	SV_ClipMoveToEntities ( &clip, dimensions );
 
 	*results = clip.trace;
 }
@@ -757,7 +766,7 @@ Ghoul2 Insert End
 SV_PointContents
 =============
 */
-int SV_PointContents( const vec3_t p, int passEntityNum ) {
+int SV_PointContents( const vec3_t p, int passEntityNum, int dimensions ) {
 	int			touch[MAX_GENTITIES];
 	sharedEntity_t *hit;
 	int			i, num;
@@ -769,7 +778,7 @@ int SV_PointContents( const vec3_t p, int passEntityNum ) {
 	contents = CM_PointContents( p, 0 );
 
 	// or in contents from all the other entities
-	num = SV_AreaEntities( p, p, touch, MAX_GENTITIES );
+	num = SV_AreaEntities( p, p, touch, MAX_GENTITIES, dimensions );
 
 	for ( i=0 ; i<num ; i++ ) {
 		if ( touch[i] == passEntityNum ) {

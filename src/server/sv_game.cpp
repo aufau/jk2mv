@@ -53,6 +53,13 @@ mvsharedEntity_t *MV_EntityNum( int num )
 	return mvEnt;
 }
 
+mvsharedEntity_t *MV_EntityForSvEntity( svEntity_t *svEnt ) {
+	int		num;
+
+	num = svEnt - sv.svEntities;
+	return MV_EntityNum( num );
+}
+
 playerState_t *SV_GameClientNum( int num ) {
 	playerState_t	*ps;
 
@@ -395,19 +402,19 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 		SV_UnlinkEntity( (sharedEntity_t *)VMA(1) );
 		return 0;
 	case G_ENTITIES_IN_BOX:
-		return SV_AreaEntities( (const float *)VMA(1), (const float *)VMA(2), (int *)VMA(3), args[4] );
+		return SV_AreaEntities( (const float *)VMA(1), (const float *)VMA(2), (int *)VMA(3), args[4], -1 );
 	case G_ENTITY_CONTACT:
 		return SV_EntityContact( (const float *)VMA(1), (const float *)VMA(2), (const sharedEntity_t *)VMA(3), /*int capsule*/ qfalse );
 	case G_ENTITY_CONTACTCAPSULE:
 		return SV_EntityContact( (const float *)VMA(1), (const float *)VMA(2), (const sharedEntity_t *)VMA(3), /*int capsule*/ qtrue );
 	case G_TRACE:
-		SV_Trace( (trace_t *)VMA(1), (const float *)VMA(2), (const float *)VMA(3), (const float *)VMA(4), (const float *)VMA(5), args[6], args[7], /*int capsule*/ qfalse, args[8], args[9] );
+		SV_Trace( (trace_t *)VMA(1), (const float *)VMA(2), (const float *)VMA(3), (const float *)VMA(4), (const float *)VMA(5), args[6], args[7], /*int capsule*/ qfalse, args[8], args[9], -1 );
 		return 0;
 	case G_TRACECAPSULE:
-		SV_Trace( (trace_t *)VMA(1), (const float *)VMA(2), (const float *)VMA(3), (const float *)VMA(4), (const float *)VMA(5), args[6], args[7], /*int capsule*/ qtrue, args[8], args[9]  );
+		SV_Trace( (trace_t *)VMA(1), (const float *)VMA(2), (const float *)VMA(3), (const float *)VMA(4), (const float *)VMA(5), args[6], args[7], /*int capsule*/ qtrue, args[8], args[9], -1 );
 		return 0;
 	case G_POINT_CONTENTS:
-		return SV_PointContents( (const float *)VMA(1), args[2] );
+		return SV_PointContents( (const float *)VMA(1), args[2], -1 );
 	case G_SET_BRUSH_MODEL:
 		SV_SetBrushModel( (sharedEntity_t *)VMA(1), (const char *)VMA(2) );
 		return 0;
@@ -1078,6 +1085,16 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 
 	case MVAPI_DISABLE_STRUCT_CONVERSION:
 		return (int)MVAPI_DisableStructConversion((qboolean)args[1]);
+
+	case MVAPI_TRACE:
+		SV_Trace( (trace_t *)VMA(1), (const float *)VMA(2), (const float *)VMA(3), (const float *)VMA(4), (const float *)VMA(5), args[6], args[7], qfalse, 0, 10, args[8] );
+		return 0;
+
+	case MVAPI_POINT_CONTENTS:
+		return SV_PointContents( (const float *)VMA(1), args[2], args[3] );
+
+	case MVAPI_ENTITIES_IN_BOX:
+		return SV_AreaEntities( (const float *)VMA(1), (const float *)VMA(2), (int *)VMA(3), args[4], args[5] );
 
 	default:
 		Com_Error( ERR_DROP, "Bad game system trap: %i", args[0] );

@@ -407,7 +407,7 @@ clipHandle_t SV_ClipHandleForEntity( const sharedEntity_t *ent );
 void SV_SectorList_f( void );
 
 
-int SV_AreaEntities( const vec3_t mins, const vec3_t maxs, int *entityList, int maxcount );
+int SV_AreaEntities( const vec3_t mins, const vec3_t maxs, int *entityList, int maxcount, int dimensions );
 // fills in a table of entity numbers with entities that have bounding boxes
 // that intersect the given area.  It is possible for a non-axial bmodel
 // to be returned that doesn't actually intersect the area on an exact
@@ -416,11 +416,11 @@ int SV_AreaEntities( const vec3_t mins, const vec3_t maxs, int *entityList, int 
 // The world entity is never returned in this list.
 
 
-int SV_PointContents( const vec3_t p, int passEntityNum );
+int SV_PointContents( const vec3_t p, int passEntityNum, int dimensions );
 // returns the CONTENTS_* value from the world and all entities at the given point.
 
 
-void SV_Trace( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int passEntityNum, int contentmask, int capsule, int traceFlags, int useLod );
+void SV_Trace( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int passEntityNum, int contentmask, int capsule, int traceFlags, int useLod, int dimensions );
 // mins and maxs are relative
 
 // if the entire move stays in a solid volume, trace.allsolid will be set,
