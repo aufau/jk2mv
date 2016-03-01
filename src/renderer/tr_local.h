@@ -1280,6 +1280,8 @@ extern	cvar_t	*r_printShaders;
 extern	cvar_t	*r_convertModelBones;
 extern	cvar_t	*r_loadSkinsJKA;
 
+extern  cvar_t  *font_select;
+
 /*
 Ghoul2 Insert Start
 */
@@ -1418,6 +1420,8 @@ void		R_GammaCorrect( byte *buffer, int bufSize );
 void	R_ImageList_f( void );
 void	R_SkinList_f( void );
 void	R_ScreenShot_f( void );
+void	R_FontSave_f( void );
+void	R_FontTransform_f( void );
 
 void	R_InitFogTable( void );
 float	R_FogFactor( float s, float t );
