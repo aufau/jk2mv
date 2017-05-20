@@ -314,6 +314,7 @@ gamestate, and possibly during gameplay.
 ==================
 */
 void CL_SystemInfoChanged( void ) {
+	cvar_t			*mv_pure;
 	char			*systemInfo;
 	const char		*s, *t;
 	char			key[BIG_INFO_KEY];
@@ -338,6 +339,15 @@ void CL_SystemInfoChanged( void ) {
 	s = Info_ValueForKey( systemInfo, "sv_paks" );
 	t = Info_ValueForKey( systemInfo, "sv_pakNames" );
 	FS_PureServerSetLoadedPaks( s, t );
+
+	mv_pure = Cvar_Get("mv_pure", "0", CVAR_ARCHIVE | CVAR_LATCH);
+	mv_pure->modified = qfalse;
+
+	if ( *s == '\0' && mv_pure->integer ) {
+		s = Info_ValueForKey( systemInfo, "mv_paks" );
+		t = Info_ValueForKey( systemInfo, "mv_pakNames" );
+		FS_PureServerSetLoadedPaks( s, t );
+	}
 
 	s = Info_ValueForKey( systemInfo, "sv_referencedPaks" );
 	t = Info_ValueForKey( systemInfo, "sv_referencedPakNames" );

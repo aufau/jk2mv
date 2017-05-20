@@ -708,6 +708,11 @@ Ghoul2 Insert End
 		Cvar_Set( "sv_pakNames", p );
 	}
 	else {
+		p = FS_LoadedPakChecksums();
+		Cvar_Set( "mv_paks", p );
+		p = FS_LoadedPakNames();
+		Cvar_Set( "mv_pakNames", p );
+
 		Cvar_Set( "sv_paks", "" );
 		Cvar_Set( "sv_pakNames", "" );
 	}
@@ -830,6 +835,8 @@ void SV_Init (void) {
 #endif
 	Cvar_Get ("sv_paks", "", CVAR_SYSTEMINFO | CVAR_ROM );
 	Cvar_Get ("sv_pakNames", "", CVAR_SYSTEMINFO | CVAR_ROM );
+	Cvar_Get ("mv_paks", "", CVAR_SYSTEMINFO | CVAR_ROM );
+	Cvar_Get ("mv_pakNames", "", CVAR_SYSTEMINFO | CVAR_ROM );
 	Cvar_Get ("sv_referencedPaks", "", CVAR_SYSTEMINFO | CVAR_ROM );
 	Cvar_Get ("sv_referencedPakNames", "", CVAR_SYSTEMINFO | CVAR_ROM );
 

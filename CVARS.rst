@@ -140,6 +140,16 @@ Client-Side
 
 ..
 
+:Name: mv_pure
+:Values: "0", "1"
+:Default: "0"
+:Description:
+   Voluntary, clientside sv_pure equivalent. Enabling it makes client
+   load only pk3s used by the current server. Works only on servers
+   running JK2MV 1.4 or later.
+
+..
+
 :Name: mv_slowrefresh
 :Values: Integer >= 0
 :Default: "3"
