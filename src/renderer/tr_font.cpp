@@ -695,12 +695,12 @@ CFontInfo *GetFont(int index)
 	return(NULL);
 }
 
-CFontInfo *RE_Font_GetVariant(CFontInfo *font, float *scale) {
+CFontInfo *RE_Font_GetVariant(CFontInfo *font, float *hScale, float *vScale) {
 	int variants = font->GetNumVariants();
 
 	if (variants > 0) {
 		CFontInfo *variant;
-		int requestedSize = font->GetPointSize() * *scale *
+		int requestedSize = font->GetPointSize() * *vScale *
 		  r_fontSharpness->value * glConfig.vidHeight / 480.0f;
 
 		if (requestedSize <= font->GetPointSize())
@@ -713,15 +713,17 @@ CFontInfo *RE_Font_GetVariant(CFontInfo *font, float *scale) {
 				break;
 		}
 
-		*scale *= (float)font->GetPointSize() / variant->GetPointSize();
+		float scale = (float)font->GetPointSize() / variant->GetPointSize();
+		*hScale *= scale;
+		*vScale *= scale;
 		return variant;
 	}
 
 	return font;
 }
 
-int RE_Font_StrLenPixels(const char *psText, const int iFontHandle, float fScale)
-{			
+int RE_Font_StrLenPixels(const char *psText, const int iFontHandle, float hScale, float vScale)
+{
 	size_t		i = 0;
 	CFontInfo	*curfont;
 	char		parseText[8192];
@@ -750,12 +752,12 @@ int RE_Font_StrLenPixels(const char *psText, const int iFontHandle, float fScale
 		return(0);
 	}
 
-	curfont = RE_Font_GetVariant(curfont, &fScale);
+	curfont = RE_Font_GetVariant(curfont, &hScale, &vScale);
 
-	float fScaleA = fScale;
+	float hScaleA = hScale;
 	if (Language_IsAsian())
 	{
-		fScaleA = fScale * 0.75f;
+		hScaleA *= 0.75f;
 	}
 
 
@@ -767,7 +769,7 @@ int RE_Font_StrLenPixels(const char *psText, const int iFontHandle, float fScale
 
 		constParseText += iAdvanceCount;
 		iPixelAdvance = curfont->GetLetterHorizAdvance(uiLetter);
-		fTotalWidth += (iPixelAdvance * ((uiLetter > 255) ? fScaleA : fScale));
+		fTotalWidth += (iPixelAdvance * ((uiLetter > 255) ? hScaleA : hScale));
 	}
 
 	return (int)(ceilf(fTotalWidth));
@@ -801,15 +803,15 @@ int RE_Font_StrLenChars(const char *psText)
 	return iCharCount;
 }
 
-int RE_Font_HeightPixels(const int iFontHandle, float fScale)
+int RE_Font_HeightPixels(const int iFontHandle, float hScale, float vScale)
 {
 	CFontInfo	*curfont;
 
 	curfont = GetFont(iFontHandle);
 	if(curfont)
 	{
-		curfont = RE_Font_GetVariant(curfont, &fScale);
-		return(Round(curfont->GetPointSize() * fScale));
+		curfont = RE_Font_GetVariant(curfont, &hScale, &vScale);
+		return(Round(curfont->GetPointSize() * vScale));
 	}
 	return(0);
 }
@@ -818,9 +820,9 @@ int RE_Font_HeightPixels(const int iFontHandle, float fScale)
 //
 qboolean gbInShadow = qfalse;	// MUST default to this
 extern cvar_t	*mv_coloredTextShadows;
-void RE_Font_DrawString(int ox, int oy, const char *psText, const vec4_t rgba, int iFontHandle, int iCharLimit, float fScale)
+void RE_Font_DrawString(int ox, int oy, const char *psText, const vec4_t rgba, int iFontHandle, int iCharLimit, float hScale, float vScale)
 {
-	int					colour, offset;
+	int					colour;
 	float				fox, foy, fx, fy;
 	const glyphInfo_t	*pLetter;
 	qhandle_t			hShader;
@@ -840,25 +842,28 @@ void RE_Font_DrawString(int ox, int oy, const char *psText, const vec4_t rgba, i
 		return;
 	}
 
-	curfont = RE_Font_GetVariant(curfont, &fScale);
+	curfont = RE_Font_GetVariant(curfont, &hScale, &vScale);
 	iFontHandle = curfont->GetHandle() | (iFontHandle & ~SET_MASK);
 
-	float fScaleA = fScale;
+	float hScaleA = hScale;
+	float vScaleA = vScale;
 	int iAsianYAdjust = 0;
 	if (Language_IsAsian())
 	{
-		fScaleA = fScale * 0.75f;
-		iAsianYAdjust = (((float)curfont->GetPointSize() * fScale) - ((float)curfont->GetPointSize() * fScaleA)) / 2;
+		hScaleA *= 0.75f;
+		vScaleA *= 0.75f;
+		iAsianYAdjust = (((float)curfont->GetPointSize() * vScale) - ((float)curfont->GetPointSize() * vScaleA)) / 2;
 	}
 
 	// Draw a dropshadow if required
 	if (iFontHandle & STYLE_DROPSHADOW) {
+		int offsetX = Round(curfont->GetPointSize() * hScale * 0.075f);
+		int offsetY = Round(curfont->GetPointSize() * vScale * 0.075f);
+
 		if ((MV_GetCurrentGameversion() == VERSION_1_02 || mv_coloredTextShadows->integer == 1) && mv_coloredTextShadows->integer) {
 			int i = 0, r = 0;
 			char dropShadowText[1024];
 			static const vec4_t v4DKGREY2 = { 0.15f, 0.15f, 0.15f, 1 };
-
-			offset = Round(curfont->GetPointSize() * fScale * 0.075f);
 
 			//^blah stuff confuses shadows, so parse it out first
 			while (psText[i] && r < 1024) {
@@ -875,16 +880,14 @@ void RE_Font_DrawString(int ox, int oy, const char *psText, const vec4_t rgba, i
 			}
 			dropShadowText[r] = 0;
 
-			RE_Font_DrawString(ox + offset, oy + offset, dropShadowText, v4DKGREY2, iFontHandle & SET_MASK, iCharLimit, fScale);
+			RE_Font_DrawString(ox + offsetX, oy + offsetY, dropShadowText, v4DKGREY2, iFontHandle & SET_MASK, iCharLimit, hScale, vScale);
 		}
 		else
 		{
 			static const vec4_t v4DKGREY2 = {0.15f, 0.15f, 0.15f, 1};
 
-			offset = Round(curfont->GetPointSize() * fScale * 0.075f);
-
 			gbInShadow = qtrue;
-			RE_Font_DrawString(ox + offset, oy + offset, psText, v4DKGREY2, iFontHandle & SET_MASK, iCharLimit, fScale);
+			RE_Font_DrawString(ox + offsetX, oy + offsetY, psText, v4DKGREY2, iFontHandle & SET_MASK, iCharLimit, hScale, vScale);
 			gbInShadow = qfalse;
 		}
 	}
@@ -896,7 +899,7 @@ void RE_Font_DrawString(int ox, int oy, const char *psText, const vec4_t rgba, i
 	fox = ox;
 
 	fx = fox;
-	foy += (curfont->GetHeight() - (curfont->GetDescender() >> 1)) * fScale;
+	foy += (curfont->GetHeight() - (curfont->GetDescender() >> 1)) * vScale;
 
 	while(*psText)
 	{
@@ -918,14 +921,14 @@ void RE_Font_DrawString(int ox, int oy, const char *psText, const vec4_t rgba, i
 			break;
 		case 10:						//linefeed
 			fx = fox;
-			foy += (float)curfont->GetPointSize() * fScale;
+			foy += (float)curfont->GetPointSize() * vScale;
 			break;
 		case 13:						// Return
 			break;
 		case 32:						// Space
 			qbThisCharCountsAsLetter = qtrue;
 			pLetter = curfont->GetLetter(' ');
-			fx += (float)pLetter->horizAdvance * fScale;
+			fx += (float)pLetter->horizAdvance * hScale;
 			break;
 
 		default:
@@ -940,13 +943,14 @@ void RE_Font_DrawString(int ox, int oy, const char *psText, const vec4_t rgba, i
 			//
 			// this 'mbRoundCalcs' stuff is crap, but the only way to make the font code work. Sigh...
 			//
-			float fThisScale = uiLetter > 255 ? fScaleA : fScale;
-			fy = foy - ((float)pLetter->baseline * fThisScale);	//fixed
+			float hThisScale = uiLetter > 255 ? hScaleA : hScale;
+			float vThisScale = uiLetter > 255 ? vScaleA : vScale;
+			fy = foy - ((float)pLetter->baseline * vThisScale);	//fixed
 
-			RE_StretchPic ( fx + (float)pLetter->horizOffset * fThisScale, // float x
+			RE_StretchPic ( fx + (float)pLetter->horizOffset * hThisScale, // float x
 							(uiLetter > 255) ? fy - iAsianYAdjust : fy,	// float y
-							(float)pLetter->width * fThisScale,	// float w
-							(float)pLetter->height * fThisScale, // float h
+							(float)pLetter->width * hThisScale,	// float w
+							(float)pLetter->height * vThisScale, // float h
 							pLetter->s,						// float s1
 							pLetter->t,						// float t1
 							pLetter->s2,					// float s2
@@ -954,7 +958,7 @@ void RE_Font_DrawString(int ox, int oy, const char *psText, const vec4_t rgba, i
 							hShader							// qhandle_t hShader
 							);
 
-			fx += (float)pLetter->horizAdvance * fThisScale;
+			fx += (float)pLetter->horizAdvance * hThisScale;
 			break;
 		}
 
