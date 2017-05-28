@@ -47,6 +47,15 @@ typedef enum {
 
 // ******** SYSCALLS ******** //
 
+// void trap_MVAPI_R_Font_DrawString(int ox, int oy, const char *text, const float *rgba, int setIndex, int iCharLimit, float hScale, float vScale);
+#define MVAPI_R_FONT_DRAWSTRING 700              /* asm: -701 */
+
+// int trap_MVAPI_R_Font_StrLenPixels(const char *text, qhandle_t iFontIndex, float hScale, float vScale);
+#define MVAPI_R_FONT_STRLENPIXELS 701            /* asm: -702 */
+
+// int trap_MVAPI_R_Font_HeightPixels(qhandle_t iFontIndex, float hScale, float vScale);
+#define MVAPI_R_FONT_STRHEIGHTPIXELS 702         /* asm: -703 */
+
 // qboolean trap_MVAPI_ControlFixes(int fixes);
 #define MVAPI_CONTROL_FIXES 703                  /* asm: -704 */
 
