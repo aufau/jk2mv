@@ -62,6 +62,9 @@ typedef enum {
 // mvversion_t trap_MVAPI_GetVersion(void);
 #define MVAPI_GET_VERSION 704                    /* asm: -705 */
 
+// void trap_MVAPI_R_DrawTransformPic(float x, float y, float (*m)[2][2], float s1, float t1, float s2, float t2, qhandle_t hShader);
+#define MVAPI_R_DRAWTRANSFORMPIC 707             /* asm: -706 */
+
 // ******** VMCALLS ******** //
 
 // vmMain(MVAPI_AFTER_INIT, ...)

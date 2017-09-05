@@ -1302,6 +1302,10 @@ Ghoul2 Insert End
 		re.AddRefEntityToScene(VMAV(1, const refEntity_t), qtrue);
 		return 0;
 
+	case MVAPI_R_DRAWTRANSFORMPIC:
+		re.DrawTransformPic( VMF(1), VMF(2), (float (*)[2][2])VMAP(3, float, 4), VMF(4), VMF(5), VMF(6), VMF(7), args[8] );
+		return 0;
+
 	default:
 			assert(0); // bk010102
 		Com_Error( ERR_DROP, "Bad cgame system trap: %i", args[0] );
