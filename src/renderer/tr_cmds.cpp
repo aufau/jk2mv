@@ -217,6 +217,33 @@ void RE_StretchPic ( float x, float y, float w, float h,
 
 /*
 =============
+RE_TransformPic
+=============
+*/
+void RE_TransformPic ( float x, float y, float (*m)[2][2],
+					  float s1, float t1, float s2, float t2, qhandle_t hShader ) {
+	transformPicCommand_t	*cmd;
+
+	cmd = (transformPicCommand_t *)R_GetCommandBuffer( sizeof( *cmd ) );
+	if ( !cmd ) {
+		return;
+	}
+	cmd->commandId = RC_TRANSFORM_PIC;
+	cmd->shader = R_GetShaderByHandle( hShader );
+	cmd->x = x;
+	cmd->y = y;
+	cmd->m[0][0] = (*m)[0][0];
+	cmd->m[0][1] = (*m)[0][1];
+	cmd->m[1][0] = (*m)[1][0];
+	cmd->m[1][1] = (*m)[1][1];
+	cmd->s1 = s1;
+	cmd->t1 = t1;
+	cmd->s2 = s2;
+	cmd->t2 = t2;
+}
+
+/*
+=============
 RE_RotatePic
 =============
 */
