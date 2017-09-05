@@ -1628,6 +1628,7 @@ refexport_t *GetRefAPI ( int apiVersion, refimport_t *rimp ) {
 	re.LerpTag = R_LerpTag;
 	re.ModelBounds = R_ModelBounds;
 
+	re.DrawTransformPic = RE_TransformPic;
 	re.DrawRotatePic = RE_RotatePic;
 	re.DrawRotatePic2 = RE_RotatePic2;
 
