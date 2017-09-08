@@ -722,7 +722,7 @@ CFontInfo *RE_Font_GetVariant(CFontInfo *font, float *hScale, float *vScale) {
 	return font;
 }
 
-int RE_Font_StrLenPixels(const char *psText, const int iFontHandle, float hScale, float vScale)
+float RE_Font_StrLenPixels(const char *psText, const int iFontHandle, float hScale, float vScale)
 {
 	size_t		i = 0;
 	CFontInfo	*curfont;
@@ -772,7 +772,7 @@ int RE_Font_StrLenPixels(const char *psText, const int iFontHandle, float hScale
 		fTotalWidth += (iPixelAdvance * ((uiLetter > 255) ? hScaleA : hScale));
 	}
 
-	return (int)(ceilf(fTotalWidth));
+	return fTotalWidth;
 }
 
 // not really a font function, but keeps naming consistant...
@@ -803,7 +803,7 @@ int RE_Font_StrLenChars(const char *psText)
 	return iCharCount;
 }
 
-int RE_Font_HeightPixels(const int iFontHandle, float hScale, float vScale)
+float RE_Font_HeightPixels(const int iFontHandle, float hScale, float vScale)
 {
 	CFontInfo	*curfont;
 
@@ -811,7 +811,7 @@ int RE_Font_HeightPixels(const int iFontHandle, float hScale, float vScale)
 	if(curfont)
 	{
 		curfont = RE_Font_GetVariant(curfont, &hScale, &vScale);
-		return(Round(curfont->GetPointSize() * vScale));
+		return(curfont->GetPointSize() * vScale);
 	}
 	return(0);
 }

@@ -782,11 +782,11 @@ intptr_t CL_CgameSystemCalls(intptr_t *args) {
 	case CG_R_REGISTERFONT:
 		return re.RegisterFont( VMAS(1) );
 	case CG_R_FONT_STRLENPIXELS:
-		return re.Font_StrLenPixels( VMAS(1), args[2], VMF(3), VMF(3) );
+		return ceilf( re.Font_StrLenPixels( VMAS(1), args[2], VMF(3), VMF(3) ) );
 	case CG_R_FONT_STRLENCHARS:
 		return re.Font_StrLenChars( VMAS(1) );
 	case CG_R_FONT_STRHEIGHTPIXELS:
-		return re.Font_HeightPixels( args[1], VMF(2), VMF(2) );
+		return roundf( re.Font_HeightPixels( args[1], VMF(2), VMF(2) ) );
 	case CG_R_FONT_DRAWSTRING:
 		re.Font_DrawString( args[1], args[2], VMAS(3), VMAP(4, const vec_t, 4), args[5], args[6], VMF(7), VMF(7) );
 		return 0;
@@ -1287,10 +1287,10 @@ Ghoul2 Insert End
 		return 0;
 
 	case MVAPI_R_FONT_STRLENPIXELS:
-		return re.Font_StrLenPixels( VMAS(1), args[2], VMF(3), VMF(4) );
+		return FloatAsInt( re.Font_StrLenPixels( VMAS(1), args[2], VMF(3), VMF(4) ) );
 
 	case MVAPI_R_FONT_STRHEIGHTPIXELS:
-		return re.Font_HeightPixels( args[1], VMF(2), VMF(3) );
+		return FloatAsInt( re.Font_HeightPixels( args[1], VMF(2), VMF(3) ) );
 
 	case MVAPI_CONTROL_FIXES:
 		return (int)CL_MVAPI_ControlFixes(args[1]);

@@ -78,9 +78,9 @@ public:
 void R_ShutdownFonts(void);
 void R_InitFonts(void);
 int RE_RegisterFont(const char *psName);
-int RE_Font_StrLenPixels(const char *psText, const int iFontHandle, float hScale = 1.0f, float vScale = 1.0f);
+float RE_Font_StrLenPixels(const char *psText, const int iFontHandle, float hScale = 1.0f, float vScale = 1.0f);
 int RE_Font_StrLenChars(const char *psText);
-int RE_Font_HeightPixels(const int iFontHandle, float hScale = 1.0f, float vScale = 1.0f);
+float RE_Font_HeightPixels(const int iFontHandle, float hScale = 1.0f, float vScale = 1.0f);
 void RE_Font_DrawString(float fox, float foy, const char *psText, const vec4_t rgba, int iFontHandle, int iCharLimit, float hScale = 1.0f, float vScale = 1.0f);
 qboolean Language_IsAsian(void);
 qboolean Language_UsesSpaces(void);

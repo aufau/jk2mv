@@ -81,9 +81,9 @@ typedef struct {
 #endif
 
 	qhandle_t (*RegisterFont)( const char *fontName );
-	int		(*Font_StrLenPixels) (const char *text, const int iFontIndex, const float hScale, const float vScale);
+	float	(*Font_StrLenPixels) (const char *text, const int iFontIndex, const float hScale, const float vScale);
 	int		(*Font_StrLenChars) (const char *text);
-	int		(*Font_HeightPixels)(const int iFontIndex, const float hScale, const float vScale);
+	float	(*Font_HeightPixels)(const int iFontIndex, const float hScale, const float vScale);
 	void	(*Font_DrawString)(float ox, float oy, const char *text, const vec4_t rgba, const int setIndex, int iCharLimit, const float hScale, const float vScale);
 	qboolean (*Language_IsAsian)(void);
 	qboolean (*Language_UsesSpaces)(void);
