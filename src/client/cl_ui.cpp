@@ -1155,7 +1155,7 @@ Ghoul2 Insert End
 		else return qtrue;
 
 	case MVAPI_R_FONT_DRAWSTRING:
-		re.Font_DrawString( args[1], args[2], VMAS(3), VMAP(4, const vec_t, 4), args[5], args[6], VMF(7), VMF(8) );
+		re.Font_DrawString( VMF(1), VMF(2), VMAS(3), VMAP(4, const vec_t, 4), args[5], args[6], VMF(7), VMF(8) );
 		return 0;
 
 	case MVAPI_R_FONT_STRLENPIXELS:

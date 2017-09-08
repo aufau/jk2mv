@@ -84,7 +84,7 @@ typedef struct {
 	int		(*Font_StrLenPixels) (const char *text, const int iFontIndex, const float hScale, const float vScale);
 	int		(*Font_StrLenChars) (const char *text);
 	int		(*Font_HeightPixels)(const int iFontIndex, const float hScale, const float vScale);
-	void	(*Font_DrawString)(int ox, int oy, const char *text, const vec4_t rgba, const int setIndex, int iCharLimit, const float hScale, const float vScale);
+	void	(*Font_DrawString)(float ox, float oy, const char *text, const vec4_t rgba, const int setIndex, int iCharLimit, const float hScale, const float vScale);
 	qboolean (*Language_IsAsian)(void);
 	qboolean (*Language_UsesSpaces)(void);
 	unsigned int (*AnyLanguage_ReadCharFromString)( const char *psText, int *piAdvanceCount, qboolean *pbIsTrailingPunctuation/* = NULL*/ );

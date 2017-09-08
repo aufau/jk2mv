@@ -820,10 +820,10 @@ int RE_Font_HeightPixels(const int iFontHandle, float hScale, float vScale)
 //
 qboolean gbInShadow = qfalse;	// MUST default to this
 extern cvar_t	*mv_coloredTextShadows;
-void RE_Font_DrawString(int ox, int oy, const char *psText, const vec4_t rgba, int iFontHandle, int iCharLimit, float hScale, float vScale)
+void RE_Font_DrawString(float fox, float foy, const char *psText, const vec4_t rgba, int iFontHandle, int iCharLimit, float hScale, float vScale)
 {
 	int					colour;
-	float				fox, foy, fx, fy;
+	float				fx, fy;
 	const glyphInfo_t	*pLetter;
 	qhandle_t			hShader;
 	qboolean			qbThisCharCountsAsLetter;	// logic for this bool must be kept same in this function and RE_Font_StrLenChars()
@@ -880,23 +880,19 @@ void RE_Font_DrawString(int ox, int oy, const char *psText, const vec4_t rgba, i
 			}
 			dropShadowText[r] = 0;
 
-			RE_Font_DrawString(ox + offsetX, oy + offsetY, dropShadowText, v4DKGREY2, iFontHandle & SET_MASK, iCharLimit, hScale, vScale);
+			RE_Font_DrawString(fox + offsetX, foy + offsetY, dropShadowText, v4DKGREY2, iFontHandle & SET_MASK, iCharLimit, hScale, vScale);
 		}
 		else
 		{
 			static const vec4_t v4DKGREY2 = {0.15f, 0.15f, 0.15f, 1};
 
 			gbInShadow = qtrue;
-			RE_Font_DrawString(ox + offsetX, oy + offsetY, psText, v4DKGREY2, iFontHandle & SET_MASK, iCharLimit, hScale, vScale);
+			RE_Font_DrawString(fox + offsetX, foy + offsetY, psText, v4DKGREY2, iFontHandle & SET_MASK, iCharLimit, hScale, vScale);
 			gbInShadow = qfalse;
 		}
 	}
 
 	RE_SetColor( rgba );
-
-	//use floats to avoid text bumping up and down.
-	foy = oy;
-	fox = ox;
 
 	fx = fox;
 	foy += (curfont->GetHeight() - (curfont->GetDescender() >> 1)) * vScale;
