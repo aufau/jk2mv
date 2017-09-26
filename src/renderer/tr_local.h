@@ -1883,10 +1883,10 @@ void RE_StretchPic ( float x, float y, float w, float h, float s1, float t1,
 	float s2, float t2, qhandle_t hShader, float xadjust, float yadjust );
 void RE_TransformPic ( float x, float y, float (*m)[2][2],
 					  float s1, float t1, float s2, float t2, qhandle_t hShader );
-void RE_RotatePic ( float x, float y, float w, float h,
-					  float s1, float t1, float s2, float t2,float a, qhandle_t hShader );
-void RE_RotatePic2 ( float x, float y, float w, float h,
-					  float s1, float t1, float s2, float t2,float a, qhandle_t hShader );
+void RE_RotatePic ( float x, float y, float w, float h, float s1, float t1,
+	float s2, float t2,float a, qhandle_t hShader, float xadjust, float yadjust );
+void RE_RotatePic2 ( float x, float y, float w, float h, float s1, float t1,
+	float s2, float t2,float a, qhandle_t hShader, float xadjust, float yadjust );
 void RE_BeginFrame( stereoFrame_t stereoFrame );
 void RE_EndFrame( int *frontEndMsec, int *backEndMsec );
 void SaveJPG(const char * filename, int quality, int image_width, int image_height, byte *image_buffer, int padding);

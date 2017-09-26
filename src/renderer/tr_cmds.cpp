@@ -252,8 +252,8 @@ void RE_TransformPic ( float x, float y, float (*m)[2][2],
 RE_RotatePic
 =============
 */
-void RE_RotatePic ( float x, float y, float w, float h,
-					  float s1, float t1, float s2, float t2,float a, qhandle_t hShader ) {
+void RE_RotatePic ( float x, float y, float w, float h, float s1, float t1,
+	float s2, float t2,float a, qhandle_t hShader, float xadjust, float yadjust ) {
 	transformPicCommand_t	*cmd;
 	float s, c;
 
@@ -268,13 +268,13 @@ void RE_RotatePic ( float x, float y, float w, float h,
 
 	cmd->commandId = RC_TRANSFORM_PIC;
 	cmd->shader = R_GetShaderByHandle( hShader );
-	cmd->m[0][0] = w * c;
-	cmd->m[0][1] = w * -s;
-	cmd->m[1][0] = h * s;
-	cmd->m[1][1] = h * c;
+	cmd->m[0][0] = xadjust * w * c;
+	cmd->m[0][1] = xadjust * h * -s;
+	cmd->m[1][0] = yadjust * w * s;
+	cmd->m[1][1] = yadjust * h * c;
 	// rotate around top-right corner
-	cmd->x = x - cmd->m[0][0] + w;
-	cmd->y = y - cmd->m[1][0];
+	cmd->x = xadjust * x - cmd->m[0][0] + xadjust * w;
+	cmd->y = yadjust * y - cmd->m[1][0];
 	cmd->s1 = s1;
 	cmd->t1 = t1;
 	cmd->s2 = s2;
@@ -286,8 +286,8 @@ void RE_RotatePic ( float x, float y, float w, float h,
 RE_RotatePic2
 =============
 */
-void RE_RotatePic2 ( float x, float y, float w, float h,
-					  float s1, float t1, float s2, float t2,float a, qhandle_t hShader ) {
+void RE_RotatePic2 ( float x, float y, float w, float h, float s1, float t1,
+	float s2, float t2,float a, qhandle_t hShader, float xadjust, float yadjust ) {
 	transformPicCommand_t	*cmd;
 	float s, c;
 
@@ -302,12 +302,12 @@ void RE_RotatePic2 ( float x, float y, float w, float h,
 
 	cmd->commandId = RC_TRANSFORM_PIC;
 	cmd->shader = R_GetShaderByHandle( hShader );
-	cmd->m[0][0] = w * c;
-	cmd->m[0][1] = w * -s;
-	cmd->m[1][0] = h * s;
-	cmd->m[1][1] = h * c;
-	cmd->x = x - 0.5f * (cmd->m[0][0] + cmd->m[0][1]);
-	cmd->y = y - 0.5f * (cmd->m[1][0] + cmd->m[1][1]);
+	cmd->m[0][0] = xadjust * w * c;
+	cmd->m[0][1] = xadjust * h * -s;
+	cmd->m[1][0] = yadjust * w * s;
+	cmd->m[1][1] = yadjust * h * c;
+	cmd->x = xadjust * x - 0.5f * (cmd->m[0][0] + cmd->m[0][1]);
+	cmd->y = yadjust * y - 0.5f * (cmd->m[1][0] + cmd->m[1][1]);
 	cmd->s1 = s1;
 	cmd->t1 = t1;
 	cmd->s2 = s2;
