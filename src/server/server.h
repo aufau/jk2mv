@@ -62,6 +62,7 @@ typedef struct {
 	int				gameClientSize;		// will be > sizeof(playerState_t) due to game private data
 
 	int				restartTime;
+	int				time;				// game module physics time
 
 	int				http_port;
 	int				saberBlockCounter;	// for mv_fixturretcrash
@@ -155,6 +156,7 @@ typedef struct client_s {
 	int				snapshotMsec;		// requests a snapshot every snapshotMsec unless rate choked
 	int				pureAuthentic;
 	netchan_t		netchan;
+	int				oldServerTime;		// client server time before map change
 
 	int				lastUserInfoChange; //if > svs.time && count > x, deny change -rww
 	int				lastUserInfoCount; //allow a certain number of changes within a certain time period -rww
