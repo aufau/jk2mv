@@ -86,6 +86,45 @@ qboolean DB_Prepare(const char *sql) {
 	return qtrue;
 }
 
+qboolean DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value) {
+	int		ret;
+
+	if (!sls.init) {
+		Com_Error(ERR_FATAL, "Database call made without initialization");
+	}
+
+	if (!sls.stmt) {
+		Com_DPrintf(S_COLOR_YELLOW "DB_Bind(): No statement\n");
+		return qfalse;
+	}
+
+	// passing finalized statements may be harmful
+	switch (type) {
+	case MVDB_INTEGER:
+		ret = sqlite3_bind_int(sls.stmt, pos, value->integer);
+		break;
+	case MVDB_REAL:
+		ret = sqlite3_bind_double(sls.stmt, pos, value->real);
+		break;
+	case MVDB_TEXT:
+		ret = sqlite3_bind_text(sls.stmt, pos, value->text, -1, SQLITE_TRANSIENT);
+		break;
+	case MVDB_NULL:
+		ret = sqlite3_bind_null(sls.stmt, pos);
+		break;
+	default:
+		Com_DPrintf(S_COLOR_YELLOW "DB_Bind(): Invalid type\n");
+		return qfalse;
+	}
+
+	if (ret != SQLITE_OK) {
+		Com_DPrintf(S_COLOR_YELLOW "DB_Bind(): %s\n", sqlite3_errstr(ret));
+		return qfalse;
+	}
+
+	return qtrue;
+}
+
 qboolean DB_Step() {
 	if (!sls.init) {
 		Com_Error(ERR_FATAL, "Database call made without initialization");

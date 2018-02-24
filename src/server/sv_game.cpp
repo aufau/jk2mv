@@ -322,6 +322,17 @@ qboolean MVAPI_LocateGameData(mvsharedEntity_t *mvEnts, int numGEntities, int si
 	return qfalse;
 }
 
+static qboolean SV_MVAPI_DB_Bind(int pos, mvdbType_t type, intptr_t valuePtr) {
+	void	*value;
+
+	if (type == MVDB_TEXT) {
+		value = VM_ArgString(G_MVAPI_DB_BIND, valuePtr);
+	} else {
+		value = VM_ArgPtr(G_MVAPI_DB_BIND, valuePtr, sizeof(mvdbValue_t));
+	}
+
+	return DB_Bind(pos, type, (const mvdbValue_t *)value);
+}
 
 /*
 ===============
@@ -1092,6 +1103,8 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 			return DB_Step();
 		case G_MVAPI_DB_COLUMN:
 			return DB_Column((mvdbValue_t *)VMAP(1, char, args[2]), args[2], VMAV(3, mvdbType_t), args[4]);
+		case G_MVAPI_DB_BIND:
+			return SV_MVAPI_DB_Bind(args[1], (mvdbType_t)args[2], args[3]);
 		}
 	}
 

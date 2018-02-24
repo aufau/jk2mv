@@ -136,6 +136,9 @@ typedef union {
 // qboolean trap_MVAPI_DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col);
 #define G_MVAPI_DB_COLUMN 712                       /* asm: -713 */
 
+// qboolean trap_MVAPI_DB_Bind(int pos, mvdbType_t type, const void *value);
+#define G_MVAPI_DB_BIND 713                         /* asm: -714 */
+
 // ******** VMCALLS ******** //
 
 // vmMain(GAME_MVAPI_RECV_CONNECTIONLESSPACKET, ...)
