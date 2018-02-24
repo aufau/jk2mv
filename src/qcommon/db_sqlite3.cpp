@@ -14,13 +14,24 @@ typedef struct {
 
 static sqliteStatic_t sls;
 
+static void DB_Printf(const char *fmt, ...) {
+	va_list		argptr;
+	char		msg[MAXPRINTMSG];
+
+	va_start(argptr, fmt);
+	Q_vsnprintf(msg, sizeof(msg), fmt, argptr);
+	va_end(argptr);
+
+	Com_DPrintf(S_COLOR_YELLOW "%s", msg);
+}
+
 static void DB_Close() {
 	int		ret;
 
 	ret = sqlite3_close(sls.db);
 
 	if (ret != SQLITE_OK) {
-		Com_DPrintf(S_COLOR_YELLOW "DB_Close(): %s\n", sqlite3_errstr(ret));
+		DB_Printf("DB_Close(): %s\n", sqlite3_errstr(ret));
 		assert(0); // resource leak
 	}
 
@@ -37,7 +48,7 @@ static qboolean DB_Open() {
 	ret = sqlite3_open(sls.path, &sls.db);
 
 	if (ret != SQLITE_OK) {
-		Com_DPrintf(S_COLOR_YELLOW "DB_Open(): %s\n", sqlite3_errstr(ret));
+		DB_Printf("DB_Open(): %s\n", sqlite3_errstr(ret));
 		DB_Close();
 		return qfalse;
 	}
@@ -79,7 +90,7 @@ qboolean DB_Prepare(const char *sql) {
 	ret = sqlite3_prepare_v2(sls.db, sql, -1, &sls.stmt, NULL);
 
 	if (ret != SQLITE_OK) {
-		Com_DPrintf(S_COLOR_YELLOW "DB_Prepare(): %s\n", sqlite3_errstr(ret));
+		DB_Printf("DB_Prepare(): %s\n", sqlite3_errstr(ret));
 		return qfalse;
 	}
 
@@ -94,7 +105,7 @@ qboolean DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value) {
 	}
 
 	if (!sls.stmt) {
-		Com_DPrintf(S_COLOR_YELLOW "DB_Bind(): No statement\n");
+		DB_Printf("DB_Bind(): No statement\n");
 		return qfalse;
 	}
 
@@ -113,12 +124,12 @@ qboolean DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value) {
 		ret = sqlite3_bind_null(sls.stmt, pos);
 		break;
 	default:
-		Com_DPrintf(S_COLOR_YELLOW "DB_Bind(): Invalid type\n");
+		DB_Printf("DB_Bind(): Invalid type\n");
 		return qfalse;
 	}
 
 	if (ret != SQLITE_OK) {
-		Com_DPrintf(S_COLOR_YELLOW "DB_Bind(): %s\n", sqlite3_errstr(ret));
+		DB_Printf("DB_Bind(): %s\n", sqlite3_errstr(ret));
 		return qfalse;
 	}
 
@@ -131,7 +142,7 @@ qboolean DB_Step() {
 	}
 
 	if (!sls.stmt) {
-		Com_DPrintf(S_COLOR_YELLOW "DB_Bind(): No statement\n");
+		DB_Printf("DB_Bind(): No statement\n");
 		return qfalse;
 	}
 
@@ -144,7 +155,7 @@ qboolean DB_Step() {
 		return qtrue;
 	default:
 		sls.row = qfalse;
-		Com_DPrintf(S_COLOR_YELLOW "DB_Step(): %s\n", sqlite3_errstr(ret));
+		DB_Printf("DB_Step(): %s\n", sqlite3_errstr(ret));
 		return qfalse;
 	}
 }
@@ -157,7 +168,7 @@ qboolean DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col) {
 	}
 
 	if (!sls.row) {
-		Com_DPrintf(S_COLOR_YELLOW "DB_Column(): No row\n");
+		DB_Printf("DB_Column(): No row\n");
 		return qfalse;
 	}
 
@@ -185,7 +196,7 @@ qboolean DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col) {
 		tp = MVDB_NULL;
 		break;
 	default:
-		Com_DPrintf(S_COLOR_YELLOW "DB_Column(): %s\n", sqlite3_errmsg(sls.db));
+		DB_Printf("DB_Column(): %s\n", sqlite3_errmsg(sls.db));
 		return qfalse;
 	}
 
