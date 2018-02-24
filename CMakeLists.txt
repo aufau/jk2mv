@@ -318,6 +318,7 @@ if(UseInternalPNG)
 endif()
 
 add_subdirectory(libs/mongoose)
+add_subdirectory(libs/SQLite3)
 
 # Package
 set(CPACK_PACKAGE_NAME ${ProjectName})

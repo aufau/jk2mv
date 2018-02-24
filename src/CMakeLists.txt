@@ -43,7 +43,11 @@ if (BuildMVMP OR BuildMVDED)
 		endif()
 	endif()
 	set(MVMPDEDIncludeDirs ${MVMPDEDIncludeDirs} ${MINIZIP_INCLUDE_DIRS})
-	
+
+	# sqlite3
+	set(MVMPDEDLibraries ${MVMPDEDLibraries}  ${SQLITE3_LIBRARIES})
+	set(MVMPDEDIncludeDirs ${MVMPDEDIncludeDirs} ${SQLITE3_INCLUDE_DIRS})
+
 	# Source
 	set(BotlibFiles
 		"botlib/aasfile.h"
