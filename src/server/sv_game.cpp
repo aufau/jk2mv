@@ -4,6 +4,7 @@
 
 #include "../game/botlib.h"
 #include "../qcommon/strip.h"
+#include "../qcommon/db_public.h"
 
 #if !defined(CROFFSYSTEM_H_INC)
 	#include "../qcommon/RoffSystem.h"
@@ -1080,6 +1081,17 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 		case MVAPI_SET_VERSION:
 			VM_SetGameversion( gvm, (mvversion_t)args[1] );
 			return 0;
+		}
+	}
+
+	if (VM_MVAPILevel(gvm) >= 4) {
+		switch(args[0]) {
+		case G_MVAPI_DB_PREPARE:
+			return DB_Prepare(VMAS(1));
+		case G_MVAPI_DB_STEP:
+			return DB_Step();
+		case G_MVAPI_DB_COLUMN:
+			return DB_Column((mvdbValue_t *)VMAP(1, char, args[2]), args[2], VMAV(3, mvdbType_t), args[4]);
 		}
 	}
 

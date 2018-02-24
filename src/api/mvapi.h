@@ -7,6 +7,7 @@
 	typedef unsigned char uint8_t;
 	typedef unsigned short uint16_t;
 	typedef unsigned int uint32_t;
+	typedef int int32_t;
 #endif
 
 // -------------------------------------- API Version -------------------------------------- //
@@ -14,8 +15,8 @@
 // MV_MIN_VERSION is the minimum required JK2MV version which implements this API-Level.
 // All future JK2MV versions are guaranteed to implement this API-Level.
 // ----------------------------------------------------------------------------------------- //
-#define MV_APILEVEL 3
-#define MV_MIN_VERSION "1.4"
+#define MV_APILEVEL 4
+#define MV_MIN_VERSION "1.5"
 // ----------------------------------------------------------------------------------------- //
 
 // ----------------------------------------- SHARED ---------------------------------------- //
@@ -97,6 +98,21 @@ typedef struct {
 	uint32_t	mvFlags;
 } mvsharedEntity_t;
 
+typedef enum {
+	MVDB_INTEGER,
+	MVDB_REAL,
+	MVDB_TEXT,
+	MVDB_BLOB,
+	MVDB_NULL
+} mvdbType_t;
+
+typedef union {
+	int32_t		integer;
+	float		real;
+	char		text[1];
+	uint8_t		blob[1];
+} mvdbValue_t;
+
 // ******** SYSCALLS ******** //
 
 // qboolean trap_MVAPI_SendConnectionlessPacket(const mvaddr_t *addr, const char *message);
@@ -110,6 +126,15 @@ typedef struct {
 
 // qboolean trap_MVAPI_DisableStructConversion(qboolean disable);
 #define G_MVAPI_DISABLE_STRUCT_CONVERSION 705		/* asm: -706 */
+
+// qboolean trap_MVAPI_DB_Prepare(const char *sql);
+#define G_MVAPI_DB_PREPARE 710                      /* asm: -711 */
+
+// qboolean trap_MVAPI_DB_Step();
+#define G_MVAPI_DB_STEP 711                         /* asm: -712 */
+
+// qboolean trap_MVAPI_DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col);
+#define G_MVAPI_DB_COLUMN 712                       /* asm: -713 */
 
 // ******** VMCALLS ******** //
 

@@ -12,8 +12,9 @@
  *****************************************************************************/
 
 
-#include "../qcommon/q_shared.h"
+#include "q_shared.h"
 #include "qcommon.h"
+#include "db_public.h"
 #include <minizip/unzip.h>
 #include <mv_setup.h>
 
@@ -3258,6 +3259,8 @@ void FS_Shutdown( qboolean closemfp ) {
 	Cmd_RemoveCommand( "fdir" );
 	Cmd_RemoveCommand( "touchFile" );
 	Cmd_RemoveCommand( "which" );
+
+	DB_Shutdown();
 }
 
 /*
@@ -3410,6 +3413,9 @@ static void FS_Startup( const char *gameName ) {
 		FS_FCloseFile(f_f);
 		Hunk_FreeTempMemory(mv_forcelist);
 	}
+
+	// FS_CreatePath( FS_BuildOSPath( fs_homepath->string, fs_gamedir ) )
+	DB_Startup( FS_BuildOSPath( fs_homepath->string, fs_gamedir, "data.sqlite3" ) );
 
 	Com_Printf( "----------------------\n" );
 	Com_Printf( "%d files in pk3 files\n", fs_packFiles );
