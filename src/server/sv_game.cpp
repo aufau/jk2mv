@@ -322,7 +322,7 @@ qboolean MVAPI_LocateGameData(mvsharedEntity_t *mvEnts, int numGEntities, int si
 	return qfalse;
 }
 
-static void SV_MVAPI_DB_Bind(int pos, mvdbType_t type, intptr_t valuePtr, int size) {
+static void SV_MVAPI_DB_Bind(mvstmtHandle_t h, int pos, mvdbType_t type, intptr_t valuePtr, int size) {
 	void	*value;
 
 	if (type == MVDB_TEXT) {
@@ -333,7 +333,7 @@ static void SV_MVAPI_DB_Bind(int pos, mvdbType_t type, intptr_t valuePtr, int si
 		value = VM_ArgPtr(G_MVAPI_DB_BIND, valuePtr, sizeof(mvdbValue_t));
 	}
 
-	DB_Bind(pos, type, (const mvdbValue_t *)value, size);
+	DB_Bind(h, pos, type, (const mvdbValue_t *)value, size);
 }
 
 /*
@@ -1100,14 +1100,19 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 	if (VM_MVAPILevel(gvm) >= 4) {
 		switch(args[0]) {
 		case G_MVAPI_DB_PREPARE:
-			DB_Prepare(VMAS(1));
-			return 0;
+			return DB_Prepare(VMAS(1));
 		case G_MVAPI_DB_STEP:
-			return DB_Step();
+			return DB_Step(args[1]);
 		case G_MVAPI_DB_COLUMN:
-			return DB_Column((mvdbValue_t *)VMAP(1, char, args[2]), args[2], (mvdbType_t)args[3], args[4]);
+			return DB_Column(args[1], (mvdbValue_t *)VMAP(2, char, args[3]), args[3], (mvdbType_t)args[4], args[5]);
 		case G_MVAPI_DB_BIND:
-			SV_MVAPI_DB_Bind(args[1], (mvdbType_t)args[2], args[3], args[4]);
+			SV_MVAPI_DB_Bind(args[1], args[2], (mvdbType_t)args[3], args[4], args[5]);
+			return 0;
+		case G_MVAPI_DB_RESET:
+			DB_Reset(args[1]);
+			return 0;
+		case G_MVAPI_DB_FINALIZE:
+			DB_Finalize(args[1]);
 			return 0;
 		}
 	}

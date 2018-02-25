@@ -4,15 +4,42 @@
 
 #include "db_public.h"
 
+#define MAX_STATEMENT_HANDLES 32
+
+typedef struct {
+	sqlite3_stmt	*p;
+	qboolean		row;	// if we have a valid row after sqlite3_step()
+} sqliteStmt_t;
+
 typedef struct {
 	qboolean		init;
 	char			path[MAX_OSPATH];
 	sqlite3			*db;
-	sqlite3_stmt	*stmt;
-	qboolean		row;	// if we have a valid row after sqlite3_step()
+	sqliteStmt_t	statements[MAX_STATEMENT_HANDLES];	// 0 is reserved
 } sqliteStatic_t;
 
 static sqliteStatic_t sls;
+
+static mvstmtHandle_t DB_HandleForStatement() {
+	for (int i = 1; i < MAX_STATEMENT_HANDLES; i++) {
+		if (sls.statements[i].p == NULL) {
+			return i;
+		}
+	}
+
+	Com_Error(ERR_DROP, "DB_HandleForStatement(): None free");
+}
+
+static sqliteStmt_t *DB_StatementForHandle(mvstmtHandle_t h) {
+	if (h < 1 || MAX_STATEMENT_HANDLES <= h) {
+		Com_Error(ERR_DROP, "DB_StatementForHandle(): Out of range");
+	}
+	if (sls.statements[h].p == NULL) {
+		Com_Error(ERR_DROP, "DB_StatementForHandle(): NULL");
+	}
+
+	return &sls.statements[h];
+}
 
 static void DB_Close() {
 	int		ret;
@@ -41,68 +68,67 @@ static void DB_Open() {
 	}
 }
 
-static void DB_Finalize() {
-	sqlite3_finalize(sls.stmt);
-	sls.stmt = NULL;
-	sls.row = qfalse;
-}
-
 void DB_Startup(const char *path) {
 	sls.init = qtrue;
 	Q_strncpyz(sls.path, path, sizeof(sls.path));
 }
 
 void DB_Shutdown() {
-	DB_Finalize();
+	for (int i = 0; i < MAX_STATEMENT_HANDLES; i++) {
+		sqlite3_finalize(sls.statements[i].p);
+	}
+
 	DB_Close();
 
 	Com_Memset(&sls, 0, sizeof(sls));
 }
 
-void DB_Prepare(const char *sql) {
-	int		ret;
+mvstmtHandle_t DB_Prepare(const char *sql) {
+	mvstmtHandle_t	h;
+	int				ret;
 
 	if (!sls.init) {
 		Com_Error(ERR_FATAL, "Database call made without initialization");
 	}
 
 	DB_Open();
-	DB_Finalize();
 
-	ret = sqlite3_prepare_v2(sls.db, sql, -1, &sls.stmt, NULL);
+	h = DB_HandleForStatement();
+
+	ret = sqlite3_prepare_v2(sls.db, sql, -1, &sls.statements[h].p, NULL);
 
 	if (ret != SQLITE_OK) {
 		Com_Error(ERR_DROP, "DB_Prepare(): %s", sqlite3_errstr(ret));
 	}
+
+	return h;
 }
 
-void DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value, int valueSize) {
-	int		ret;
+void DB_Bind(mvstmtHandle_t h, int pos, mvdbType_t type, const mvdbValue_t *value, int valueSize) {
+	sqliteStmt_t	*statement;
+	int				ret;
 
 	if (!sls.init) {
 		Com_Error(ERR_FATAL, "Database call made without initialization");
 	}
 
-	// passing finalized statements to sqlite3_bind_* may be harmful
-	if (!sls.stmt) {
-		Com_Error(ERR_DROP, "DB_Bind(): No statement");
-	}
+	statement = DB_StatementForHandle(h);
 
 	switch (type) {
 	case MVDB_INTEGER:
-		ret = sqlite3_bind_int(sls.stmt, pos, value->integer);
+		ret = sqlite3_bind_int(statement->p, pos, value->integer);
 		break;
 	case MVDB_REAL:
-		ret = sqlite3_bind_double(sls.stmt, pos, value->real);
+		ret = sqlite3_bind_double(statement->p, pos, value->real);
 		break;
 	case MVDB_TEXT:
-		ret = sqlite3_bind_text(sls.stmt, pos, value->text, valueSize, SQLITE_TRANSIENT);
+		ret = sqlite3_bind_text(statement->p, pos, value->text, valueSize, SQLITE_TRANSIENT);
 		break;
 	case MVDB_BLOB:
-		ret = sqlite3_bind_blob(sls.stmt, pos, value->blob, valueSize, SQLITE_TRANSIENT);
+		ret = sqlite3_bind_blob(statement->p, pos, value->blob, valueSize, SQLITE_TRANSIENT);
 		break;
 	case MVDB_NULL:
-		ret = sqlite3_bind_null(sls.stmt, pos);
+		ret = sqlite3_bind_null(statement->p, pos);
 		break;
 	default:
 		Com_Error(ERR_DROP, "DB_Bind(): Invalid type");
@@ -113,24 +139,23 @@ void DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value, int valueSize) 
 	}
 }
 
-qboolean DB_Step() {
-	int		ret;
+qboolean DB_Step(mvstmtHandle_t h) {
+	sqliteStmt_t	*statement;
+	int				ret;
 
 	if (!sls.init) {
 		Com_Error(ERR_FATAL, "Database call made without initialization");
 	}
 
-	if (!sls.stmt) {
-		Com_Error(ERR_DROP, "DB_Step(): No statement");
-	}
+	statement = DB_StatementForHandle(h);
 
-	switch (ret = sqlite3_step(sls.stmt)) {
+	switch (ret = sqlite3_step(statement->p)) {
 	case SQLITE_ROW:
-		sls.row = qtrue;
+		statement->row = qtrue;
 		return qtrue;
 	case SQLITE_OK:
 	case SQLITE_DONE:
-		sls.row = qfalse;
+		statement->row = qfalse;
 		return qfalse;
 	case SQLITE_ERROR:
 		Com_Error(ERR_DROP, "DB_Step(): %s", sqlite3_errmsg(sls.db));
@@ -140,38 +165,41 @@ qboolean DB_Step() {
 	}
 }
 
-int DB_Column(mvdbValue_t *value, int valueSize, mvdbType_t type, int col) {
-	const void	*blob;
-	int			size;
+int DB_Column(mvstmtHandle_t h, mvdbValue_t *value, int valueSize, mvdbType_t type, int col) {
+	sqliteStmt_t	*statement;
+	const void		*blob;
+	int				size;
 
 	if (!sls.init) {
 		Com_Error(ERR_FATAL, "Database call made without initialization");
 	}
 
-	if (!sls.row) {
+	statement = DB_StatementForHandle(h);
+
+	if (!statement->row) {
 		Com_Error(ERR_DROP, "DB_Column(): No row");
 	}
 
-	if (sqlite3_column_type(sls.stmt, col) == SQLITE_NULL) {
+	if (sqlite3_column_type(statement->p, col) == SQLITE_NULL) {
 		return -1;
 	}
 
 	switch (type) {
 	case MVDB_INTEGER:
-		value->integer = sqlite3_column_int(sls.stmt, col);
+		value->integer = sqlite3_column_int(statement->p, col);
 		size = sizeof(value->integer);
 		break;
 	case MVDB_REAL:
-		value->real = sqlite3_column_double(sls.stmt, col);
+		value->real = sqlite3_column_double(statement->p, col);
 		size = sizeof(value->real);
 		break;
 	case MVDB_TEXT:
-		Q_strncpyz(value->text, (const char *)sqlite3_column_text(sls.stmt, col), valueSize);
-		size = sqlite3_column_bytes(sls.stmt, col);
+		Q_strncpyz(value->text, (const char *)sqlite3_column_text(statement->p, col), valueSize);
+		size = sqlite3_column_bytes(statement->p, col);
 		break;
 	case SQLITE_BLOB:
-		blob = sqlite3_column_blob(sls.stmt, col);
-		size = sqlite3_column_bytes(sls.stmt, col);
+		blob = sqlite3_column_blob(statement->p, col);
+		size = sqlite3_column_bytes(statement->p, col);
 		Com_Memcpy(value->blob, blob, MIN(size, valueSize));
 		break;
 	default:
@@ -179,6 +207,32 @@ int DB_Column(mvdbValue_t *value, int valueSize, mvdbType_t type, int col) {
 	}
 
 	return size;
+}
+
+void DB_Reset(mvstmtHandle_t h) {
+	sqliteStmt_t	*statement;
+
+	if (!sls.init) {
+		Com_Error(ERR_FATAL, "Database call made without initialization");
+	}
+
+	statement = DB_StatementForHandle(h);
+
+	sqlite3_reset(statement->p);
+	statement->row = qfalse;
+}
+
+void DB_Finalize(mvstmtHandle_t h) {
+	sqliteStmt_t	*statement;
+
+	if (!sls.init) {
+		Com_Error(ERR_FATAL, "Database call made without initialization");
+	}
+
+	statement = DB_StatementForHandle(h);
+
+	sqlite3_finalize(statement->p);
+	Com_Memset(statement, 0, sizeof(*statement));
 }
 
 void DB_Meminfo() {

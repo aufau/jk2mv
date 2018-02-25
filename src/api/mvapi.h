@@ -98,6 +98,8 @@ typedef struct {
 	uint32_t	mvFlags;
 } mvsharedEntity_t;
 
+typedef int mvstmtHandle_t;
+
 typedef enum {
 	MVDB_INTEGER,
 	MVDB_REAL,
@@ -127,17 +129,23 @@ typedef union {
 // qboolean trap_MVAPI_DisableStructConversion(qboolean disable);
 #define G_MVAPI_DISABLE_STRUCT_CONVERSION 705		/* asm: -706 */
 
-// void trap_MVAPI_DB_Prepare(const char *sql);
+// mvstmtHandle_t trap_MVAPI_DB_Prepare(const char *sql);
 #define G_MVAPI_DB_PREPARE 710                      /* asm: -711 */
 
-// qboolean trap_MVAPI_DB_Step();
+// qboolean trap_MVAPI_DB_Step(mvstmtHandle_t h);
 #define G_MVAPI_DB_STEP 711                         /* asm: -712 */
 
-// int trap_MVAPI_DB_Column(mvdbValue_t *value, int valueSize, mvdbType_t type, int col);
+// int trap_MVAPI_DB_Column(mvstmtHandle_t h, mvdbValue_t *value, int valueSize, mvdbType_t type, int col);
 #define G_MVAPI_DB_COLUMN 712                       /* asm: -713 */
 
-// void trap_MVAPI_DB_Bind(int pos, mvdbType_t type, const void *value, int valueSize);
+// void trap_MVAPI_DB_Bind(mvstmtHandle_t h, int pos, mvdbType_t type, const void *value, int valueSize);
 #define G_MVAPI_DB_BIND 713                         /* asm: -714 */
+
+// void trap_MVAPI_DB_Reset(mvstmtHandle_t h);
+#define G_MVAPI_DB_RESET 714                        /* asm: -715 */
+
+// void trap_MVAPI_DB_Finalize(mvstmtHandle_t h);
+#define G_MVAPI_DB_FINALIZE 715                     /* asm: -716 */
 
 // ******** VMCALLS ******** //
 
