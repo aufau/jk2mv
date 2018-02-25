@@ -127,16 +127,16 @@ typedef union {
 // qboolean trap_MVAPI_DisableStructConversion(qboolean disable);
 #define G_MVAPI_DISABLE_STRUCT_CONVERSION 705		/* asm: -706 */
 
-// qboolean trap_MVAPI_DB_Prepare(const char *sql);
+// void trap_MVAPI_DB_Prepare(const char *sql);
 #define G_MVAPI_DB_PREPARE 710                      /* asm: -711 */
 
 // qboolean trap_MVAPI_DB_Step();
 #define G_MVAPI_DB_STEP 711                         /* asm: -712 */
 
-// qboolean trap_MVAPI_DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col);
+// void trap_MVAPI_DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col);
 #define G_MVAPI_DB_COLUMN 712                       /* asm: -713 */
 
-// qboolean trap_MVAPI_DB_Bind(int pos, mvdbType_t type, const void *value);
+// void trap_MVAPI_DB_Bind(int pos, mvdbType_t type, const void *value);
 #define G_MVAPI_DB_BIND 713                         /* asm: -714 */
 
 // ******** VMCALLS ******** //

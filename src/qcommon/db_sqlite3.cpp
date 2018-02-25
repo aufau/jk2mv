@@ -14,18 +14,6 @@ typedef struct {
 
 static sqliteStatic_t sls;
 
-static void DB_Printf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2))) {
-	va_list		argptr;
-	char		msg[MAXPRINTMSG];
-
-	va_start(argptr, fmt);
-	Q_vsnprintf(msg, sizeof(msg), fmt, argptr);
-	va_end(argptr);
-
-	Com_DPrintf(S_COLOR_YELLOW "%s", msg);
-}
-
-
 static void DB_Close() {
 	int		ret;
 
@@ -49,12 +37,12 @@ static void DB_Open() {
 	ret = sqlite3_open(sls.path, &sls.db);
 
 	if (ret != SQLITE_OK) {
-		Com_Error("DB_Open(): %s", sqlite3_errstr(ret));
+		Com_Error(ERR_DROP, "DB_Open(): %s", sqlite3_errstr(ret));
 	}
 }
 
 static void DB_Finalize() {
-	sqlite3_finalize(sls.stmt)
+	sqlite3_finalize(sls.stmt);
 	sls.stmt = NULL;
 	sls.row = qfalse;
 }
@@ -71,7 +59,7 @@ void DB_Shutdown() {
 	Com_Memset(&sls, 0, sizeof(sls));
 }
 
-qboolean DB_Prepare(const char *sql) {
+void DB_Prepare(const char *sql) {
 	int		ret;
 
 	if (!sls.init) {
@@ -84,26 +72,22 @@ qboolean DB_Prepare(const char *sql) {
 	ret = sqlite3_prepare_v2(sls.db, sql, -1, &sls.stmt, NULL);
 
 	if (ret != SQLITE_OK) {
-		DB_Printf("DB_Prepare(): %s\n", sqlite3_errstr(ret));
-		return qfalse;
+		Com_Error(ERR_DROP, "DB_Prepare(): %s", sqlite3_errstr(ret));
 	}
-
-	return qtrue;
 }
 
-qboolean DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value) {
+void DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value) {
 	int		ret;
 
 	if (!sls.init) {
 		Com_Error(ERR_FATAL, "Database call made without initialization");
 	}
 
+	// passing finalized statements to sqlite3_bind_* may be harmful
 	if (!sls.stmt) {
-		DB_Printf("DB_Bind(): No statement\n");
-		return qfalse;
+		Com_Error(ERR_DROP, "DB_Bind(): No statement");
 	}
 
-	// passing finalized statements may be harmful
 	switch (type) {
 	case MVDB_INTEGER:
 		ret = sqlite3_bind_int(sls.stmt, pos, value->integer);
@@ -118,43 +102,42 @@ qboolean DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value) {
 		ret = sqlite3_bind_null(sls.stmt, pos);
 		break;
 	default:
-		DB_Printf("DB_Bind(): Invalid type\n");
-		return qfalse;
+		Com_Error(ERR_DROP, "DB_Bind(): Invalid type");
 	}
 
 	if (ret != SQLITE_OK) {
-		DB_Printf("DB_Bind(): %s\n", sqlite3_errstr(ret));
-		return qfalse;
+		Com_Error(ERR_DROP, "DB_Bind(): %s", sqlite3_errstr(ret));
 	}
-
-	return qtrue;
 }
 
 qboolean DB_Step() {
+	int		ret;
+
 	if (!sls.init) {
 		Com_Error(ERR_FATAL, "Database call made without initialization");
 	}
 
 	if (!sls.stmt) {
-		DB_Printf("DB_Step(): No statement\n");
-		return qfalse;
+		Com_Error(ERR_DROP, "DB_Step(): No statement");
 	}
 
-	switch (sqlite3_step(sls.stmt)) {
+	switch (ret = sqlite3_step(sls.stmt)) {
 	case SQLITE_ROW:
 		sls.row = qtrue;
 		return qtrue;
+	case SQLITE_OK:
 	case SQLITE_DONE:
 		sls.row = qfalse;
-		return qtrue;
-	default:
-		sls.row = qfalse;
-		DB_Printf("DB_Step(): %s\n", sqlite3_errstr(ret));
 		return qfalse;
+	case SQLITE_ERROR:
+		Com_Error(ERR_DROP, "DB_Step(): %s", sqlite3_errmsg(sls.db));
+	case SQLITE_BUSY:	// TODO: may happen when another process/thread locks db.
+	default:
+		Com_Error(ERR_DROP, "DB_Step(): %s", sqlite3_errstr(ret));
 	}
 }
 
-qboolean DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col) {
+void DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col) {
 	mvdbType_t	tp;
 
 	if (!sls.init) {
@@ -162,8 +145,7 @@ qboolean DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col) {
 	}
 
 	if (!sls.row) {
-		DB_Printf("DB_Column(): No row\n");
-		return qfalse;
+		Com_Error(ERR_DROP, "DB_Column(): No row");
 	}
 
 	Com_Memset(dst, 0, size);
@@ -190,13 +172,10 @@ qboolean DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col) {
 		tp = MVDB_NULL;
 		break;
 	default:
-		DB_Printf("DB_Column(): %s\n", sqlite3_errmsg(sls.db));
-		return qfalse;
+		Com_Error(ERR_DROP, "DB_Column(): %s", sqlite3_errmsg(sls.db));
 	}
 
 	if (type) {
 		*type = tp;
 	}
-
-	return qtrue;
 }
