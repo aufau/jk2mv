@@ -14,7 +14,7 @@ typedef struct {
 
 static sqliteStatic_t sls;
 
-static void DB_Printf(const char *fmt, ...) {
+static void DB_Printf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2))) {
 	va_list		argptr;
 	char		msg[MAXPRINTMSG];
 
@@ -25,39 +25,36 @@ static void DB_Printf(const char *fmt, ...) {
 	Com_DPrintf(S_COLOR_YELLOW "%s", msg);
 }
 
+
 static void DB_Close() {
 	int		ret;
 
 	ret = sqlite3_close(sls.db);
 
 	if (ret != SQLITE_OK) {
-		DB_Printf("DB_Close(): %s\n", sqlite3_errstr(ret));
-		assert(0); // resource leak
+		// should never happen or it's engine error (and resource leak)
+		Com_Error(ERR_FATAL, "DB_Close(): %s", sqlite3_errstr(ret));
 	}
 
 	sls.db = NULL;
 }
 
-static qboolean DB_Open() {
+static void DB_Open() {
 	int			ret;
 
 	if (sls.db) {
-		return qtrue;
+		return;
 	}
 
 	ret = sqlite3_open(sls.path, &sls.db);
 
 	if (ret != SQLITE_OK) {
-		DB_Printf("DB_Open(): %s\n", sqlite3_errstr(ret));
-		DB_Close();
-		return qfalse;
+		Com_Error("DB_Open(): %s", sqlite3_errstr(ret));
 	}
-
-	return qtrue;
 }
 
 static void DB_Finalize() {
-	sqlite3_finalize(sls.stmt);
+	sqlite3_finalize(sls.stmt)
 	sls.stmt = NULL;
 	sls.row = qfalse;
 }
@@ -81,10 +78,7 @@ qboolean DB_Prepare(const char *sql) {
 		Com_Error(ERR_FATAL, "Database call made without initialization");
 	}
 
-	if (!DB_Open()) {
-		return qfalse;
-	}
-
+	DB_Open();
 	DB_Finalize();
 
 	ret = sqlite3_prepare_v2(sls.db, sql, -1, &sls.stmt, NULL);
@@ -142,7 +136,7 @@ qboolean DB_Step() {
 	}
 
 	if (!sls.stmt) {
-		DB_Printf("DB_Bind(): No statement\n");
+		DB_Printf("DB_Step(): No statement\n");
 		return qfalse;
 	}
 
