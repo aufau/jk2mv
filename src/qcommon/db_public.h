@@ -7,6 +7,6 @@ void DB_Startup(const char *path);
 void DB_Shutdown();
 
 void DB_Prepare(const char *sql);
-void DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value);
+void DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value, int valueSize);
 qboolean DB_Step();
-void DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col);
+int DB_Column(mvdbValue_t *value, int valueSize, mvdbType_t type, int col);

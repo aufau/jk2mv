@@ -133,10 +133,10 @@ typedef union {
 // qboolean trap_MVAPI_DB_Step();
 #define G_MVAPI_DB_STEP 711                         /* asm: -712 */
 
-// void trap_MVAPI_DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col);
+// int trap_MVAPI_DB_Column(mvdbValue_t *value, int valueSize, mvdbType_t type, int col);
 #define G_MVAPI_DB_COLUMN 712                       /* asm: -713 */
 
-// void trap_MVAPI_DB_Bind(int pos, mvdbType_t type, const void *value);
+// void trap_MVAPI_DB_Bind(int pos, mvdbType_t type, const void *value, int valueSize);
 #define G_MVAPI_DB_BIND 713                         /* asm: -714 */
 
 // ******** VMCALLS ******** //

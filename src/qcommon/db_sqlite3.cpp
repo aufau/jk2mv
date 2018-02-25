@@ -76,7 +76,7 @@ void DB_Prepare(const char *sql) {
 	}
 }
 
-void DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value) {
+void DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value, int valueSize) {
 	int		ret;
 
 	if (!sls.init) {
@@ -96,7 +96,10 @@ void DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value) {
 		ret = sqlite3_bind_double(sls.stmt, pos, value->real);
 		break;
 	case MVDB_TEXT:
-		ret = sqlite3_bind_text(sls.stmt, pos, value->text, -1, SQLITE_TRANSIENT);
+		ret = sqlite3_bind_text(sls.stmt, pos, value->text, valueSize, SQLITE_TRANSIENT);
+		break;
+	case MVDB_BLOB:
+		ret = sqlite3_bind_blob(sls.stmt, pos, value->blob, valueSize, SQLITE_TRANSIENT);
 		break;
 	case MVDB_NULL:
 		ret = sqlite3_bind_null(sls.stmt, pos);
@@ -137,8 +140,9 @@ qboolean DB_Step() {
 	}
 }
 
-void DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col) {
-	mvdbType_t	tp;
+int DB_Column(mvdbValue_t *value, int valueSize, mvdbType_t type, int col) {
+	const void	*blob;
+	int			size;
 
 	if (!sls.init) {
 		Com_Error(ERR_FATAL, "Database call made without initialization");
@@ -148,34 +152,31 @@ void DB_Column(mvdbValue_t *dst, int size, mvdbType_t *type, int col) {
 		Com_Error(ERR_DROP, "DB_Column(): No row");
 	}
 
-	Com_Memset(dst, 0, size);
+	if (sqlite3_column_type(sls.stmt, col) == SQLITE_NULL) {
+		return -1;
+	}
 
-	switch (sqlite3_column_type(sls.stmt, col)) {
-	case SQLITE_INTEGER:
-		tp = MVDB_INTEGER;
-		dst->integer = sqlite3_column_int(sls.stmt, col);
+	switch (type) {
+	case MVDB_INTEGER:
+		value->integer = sqlite3_column_int(sls.stmt, col);
+		size = sizeof(value->integer);
 		break;
-	case SQLITE_FLOAT:
-		tp = MVDB_REAL;
-		dst->real = sqlite3_column_double(sls.stmt, col);
+	case MVDB_REAL:
+		value->real = sqlite3_column_double(sls.stmt, col);
+		size = sizeof(value->real);
 		break;
-	case SQLITE_TEXT:
-		tp = MVDB_TEXT;
-		Q_strncpyz(dst->text, (const char *)sqlite3_column_text(sls.stmt, col), size);
+	case MVDB_TEXT:
+		Q_strncpyz(value->text, (const char *)sqlite3_column_text(sls.stmt, col), valueSize);
+		size = sqlite3_column_bytes(sls.stmt, col);
 		break;
 	case SQLITE_BLOB:
-		tp = MVDB_BLOB;
-		// sqlite3_column_text will add terminating 0 to blob
-		Q_strncpyz(dst->text, (const char *)sqlite3_column_text(sls.stmt, col), size);
-		break;
-	case SQLITE_NULL:
-		tp = MVDB_NULL;
+		blob = sqlite3_column_blob(sls.stmt, col);
+		size = sqlite3_column_bytes(sls.stmt, col);
+		Com_Memcpy(value->blob, blob, MIN(size, valueSize));
 		break;
 	default:
-		Com_Error(ERR_DROP, "DB_Column(): %s", sqlite3_errmsg(sls.db));
+		Com_Error(ERR_DROP, "DB_Column(): Invalid type");
 	}
 
-	if (type) {
-		*type = tp;
-	}
+	return size;
 }
