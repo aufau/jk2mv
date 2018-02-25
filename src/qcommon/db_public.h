@@ -5,6 +5,7 @@
 
 void DB_Startup(const char *path);
 void DB_Shutdown();
+void DB_Meminfo();
 
 void DB_Prepare(const char *sql);
 void DB_Bind(int pos, mvdbType_t type, const mvdbValue_t *value, int valueSize);

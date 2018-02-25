@@ -180,3 +180,11 @@ int DB_Column(mvdbValue_t *value, int valueSize, mvdbType_t type, int col) {
 
 	return size;
 }
+
+void DB_Meminfo() {
+	long long int used = sqlite3_memory_used();
+	long long int highwater = sqlite3_memory_highwater(0);
+
+	Com_Printf("SQLite3 is using %lld bytes (%.2fMB)\n", used, used / 1024.0 / 1024.0);
+	Com_Printf("SQLite3 peaked at %lld bytes (%.2fMB)\n", highwater, highwater / 1024.0 / 1024.0);
+}

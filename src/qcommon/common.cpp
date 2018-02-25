@@ -9,6 +9,7 @@
 #include "../qcommon/q_shared.h"
 #include "../sys/sys_local.h"
 #include "qcommon.h"
+#include "db_public.h"
 #include "../client/client.h"
 #include "../server/server.h"
 #include "strip.h"
@@ -1416,12 +1417,12 @@ void Com_Meminfo_f( void ) {
 //	memblock_t	*block;
 //	int			zoneBytes, zoneBlocks;
 //	int			smallZoneBytes, smallZoneBlocks;
-	int			botlibBytes, rendererBytes;
+//	int			botlibBytes, rendererBytes;
 	int			unused;
 
 //	zoneBytes = 0;
-	botlibBytes = 0;
-	rendererBytes = 0;
+//	botlibBytes = 0;
+//	rendererBytes = 0;
 //	zoneBlocks = 0;
 /*	for (block = mainzone->blocklist.next ; ; block = block->next) {
 		if ( Cmd_Argc() != 1 ) {
@@ -1496,10 +1497,12 @@ void Com_Meminfo_f( void ) {
 	Com_Printf( "%8i unused highwater\n", unused );
 	Com_Printf( "\n" );
 //	Com_Printf( "%8i bytes in %i zone blocks\n", zoneBytes, zoneBlocks	);
-	Com_Printf( "		%8i bytes in dynamic botlib\n", botlibBytes );
-	Com_Printf( "		%8i bytes in dynamic renderer\n", rendererBytes );
+//	Com_Printf( "		%8i bytes in dynamic botlib\n", botlibBytes );
+//	Com_Printf( "		%8i bytes in dynamic renderer\n", rendererBytes );
 //	Com_Printf( "		%8i bytes in dynamic other\n", zoneBytes - ( botlibBytes + rendererBytes ) );
 //	Com_Printf( "		%8i bytes in small Zone memory\n", smallZoneBytes );
+
+	DB_Meminfo();
 }
 
 /*
