@@ -108,6 +108,13 @@ typedef enum {
 	MVDB_NULL
 } mvdbType_t;
 
+typedef enum {
+	MVDB_ROW = 0,		// another row of output is available
+	MVDB_DONE,			// step completed
+	MVDB_BUSY,			// database locked by another process, retry later
+	MVDB_CONSTRAINT,	// statement violated a constraint
+} mvdbResult_t;
+
 typedef union {
 	int32_t		integer;
 	float		real;
@@ -132,7 +139,7 @@ typedef union {
 // mvstmtHandle_t trap_MVAPI_DB_Prepare(const char *sql);
 #define G_MVAPI_DB_PREPARE 710                      /* asm: -711 */
 
-// qboolean trap_MVAPI_DB_Step(mvstmtHandle_t h);
+// mvdbResult_t trap_MVAPI_DB_Step(mvstmtHandle_t h);
 #define G_MVAPI_DB_STEP 711                         /* asm: -712 */
 
 // int trap_MVAPI_DB_Column(mvstmtHandle_t h, mvdbValue_t *value, int valueSize, mvdbType_t type, int col);

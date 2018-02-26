@@ -139,7 +139,7 @@ void DB_Bind(mvstmtHandle_t h, int pos, mvdbType_t type, const mvdbValue_t *valu
 	}
 }
 
-qboolean DB_Step(mvstmtHandle_t h) {
+mvdbResult_t DB_Step(mvstmtHandle_t h) {
 	sqliteStmt_t	*statement;
 	int				ret;
 
@@ -148,18 +148,21 @@ qboolean DB_Step(mvstmtHandle_t h) {
 	}
 
 	statement = DB_StatementForHandle(h);
+	statement->row = qfalse;
 
 	switch (ret = sqlite3_step(statement->p)) {
 	case SQLITE_ROW:
 		statement->row = qtrue;
-		return qtrue;
+		return MVDB_ROW;
 	case SQLITE_OK:
 	case SQLITE_DONE:
-		statement->row = qfalse;
-		return qfalse;
+		return MVDB_DONE;
+	case SQLITE_BUSY:
+		return MVDB_BUSY;
+	case SQLITE_CONSTRAINT:
+		return MVDB_CONSTRAINT;
 	case SQLITE_ERROR:
 		Com_Error(ERR_DROP, "DB_Step(): %s", sqlite3_errmsg(sls.db));
-	case SQLITE_BUSY:	// TODO: may happen when another process/thread locks db.
 	default:
 		Com_Error(ERR_DROP, "DB_Step(): %s", sqlite3_errstr(ret));
 	}
