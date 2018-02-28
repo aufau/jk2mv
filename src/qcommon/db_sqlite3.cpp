@@ -158,8 +158,10 @@ mvdbResult_t DB_Step(mvstmtHandle_t h) {
 	case SQLITE_DONE:
 		return MVDB_DONE;
 	case SQLITE_BUSY:
+		Com_DPrintf( S_COLOR_YELLOW "DB_Step(): %s", sqlite3_errstr(ret));
 		return MVDB_BUSY;
 	case SQLITE_CONSTRAINT:
+		Com_DPrintf( S_COLOR_YELLOW "DB_Step(): %s", sqlite3_errstr(ret));
 		return MVDB_CONSTRAINT;
 	case SQLITE_ERROR:
 		Com_Error(ERR_DROP, "DB_Step(): %s", sqlite3_errmsg(sls.db));
