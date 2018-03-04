@@ -9,7 +9,6 @@
 #include "../qcommon/q_shared.h"
 #include "../sys/sys_local.h"
 #include "qcommon.h"
-#include "db_public.h"
 #include "../client/client.h"
 #include "../server/server.h"
 #include "strip.h"

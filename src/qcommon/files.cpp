@@ -14,7 +14,6 @@
 
 #include "q_shared.h"
 #include "qcommon.h"
-#include "db_public.h"
 #include <minizip/unzip.h>
 #include <mv_setup.h>
 
@@ -3415,7 +3414,7 @@ static void FS_Startup( const char *gameName ) {
 	}
 
 	// FS_CreatePath( FS_BuildOSPath( fs_homepath->string, fs_gamedir ) )
-	DB_Startup( FS_BuildOSPath( fs_homepath->string, fs_gamedir, "data.sqlite3" ) );
+	DB_Startup( FS_BuildOSPath( fs_homepath->string, fs_gamedir, SL_DATABASE ) );
 
 	Com_Printf( "----------------------\n" );
 	Com_Printf( "%d files in pk3 files\n", fs_packFiles );

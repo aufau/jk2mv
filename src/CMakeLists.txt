@@ -155,7 +155,6 @@ if (BuildMVMP OR BuildMVDED)
 		"qcommon/strip.h"
 		"qcommon/tags.h"
 		"qcommon/vm_local.h"
-		"qcommon/db_public.h"
 
 		"qcommon/CNetProfile.cpp"
 		"qcommon/GenericParser2.cpp"
@@ -181,7 +180,7 @@ if (BuildMVMP OR BuildMVDED)
 		"qcommon/strip.cpp"
 		"qcommon/vm.cpp"
 		"qcommon/vm_interpreted.cpp"
-		"qcommon/db_sqlite3.cpp"
+		"qcommon/sqlite3.cpp"
 	)
 
 	if(ARCH_X86)

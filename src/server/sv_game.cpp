@@ -4,7 +4,6 @@
 
 #include "../game/botlib.h"
 #include "../qcommon/strip.h"
-#include "../qcommon/db_public.h"
 
 #if !defined(CROFFSYSTEM_H_INC)
 	#include "../qcommon/RoffSystem.h"
