@@ -34,7 +34,7 @@ if (BuildMVMP OR BuildMVDED)
 		endif()
 	endif()
 	set(MVMPDEDIncludeDirs ${MVMPDEDIncludeDirs} ${ZLIB_INCLUDE_DIRS})
-	
+
 	# minizip
 	if(NOT UseInternalMiniZip)
 		find_package(MiniZip)
@@ -45,6 +45,12 @@ if (BuildMVMP OR BuildMVDED)
 	set(MVMPDEDIncludeDirs ${MVMPDEDIncludeDirs} ${MINIZIP_INCLUDE_DIRS})
 
 	# sqlite3
+	if(NOT UseInternalSQLite3)
+		find_package(SQLite3)
+		if(NOT SQLITE3_FOUND)
+			message(FATAL_ERROR "SQLite3 dev files not found! Install it or set UseInternalSQLite3 ON")
+		endif()
+	endif()
 	set(MVMPDEDLibraries ${MVMPDEDLibraries}  ${SQLITE3_LIBRARIES})
 	set(MVMPDEDIncludeDirs ${MVMPDEDIncludeDirs} ${SQLITE3_INCLUDE_DIRS})
 
