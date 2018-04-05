@@ -108,6 +108,9 @@ static void DB_Open() {
 	if (ret != SQLITE_OK) {
 		Com_Error(ERR_DROP, "DB_Open(): %s", sqlite3_errstr(ret));
 	}
+
+	// attaching databases could be used to escape FS jail
+	sqlite3_limit(sls.db, SQLITE_LIMIT_ATTACHED, 0);
 }
 
 /*
