@@ -52,11 +52,11 @@ script: |
   mkdir $TRAVIS_BUILD_DIR/build/travis
   cd $TRAVIS_BUILD_DIR/build/travis
   if [[ "$HOST" == linux-x86_64-gcc ]]; then
-      docker exec bc sh -c "cd /jk2mv/build/travis && cmake -DUseInternalPNG=ON -DUseInternalJPEG=ON -DUseInternalZLIB=ON -DUseInternalMiniZip=ON -DBuildPortableVersion=OFF -DBuildPackDEB=ON -DBuildPackRPM=ON ../.."
+      docker exec bc sh -c "cd /jk2mv/build/travis && cmake -DUseInternalPNG=ON -DUseInternalJPEG=ON -DUseInternalZLIB=ON -DUseInternalMiniZip=ON -DUseInternalSQLite3=ON -DBuildPortableVersion=OFF -DBuildPackDEB=ON -DBuildPackRPM=ON ../.."
       docker exec bc sh -c "cd /jk2mv/build/travis && make"
       docker exec bc sh -c "cd /jk2mv/build/travis && make package"
   else
-      cmake -G "Unix Makefiles" -DUseInternalPNG=ON -DUseInternalJPEG=ON -DUseInternalZLIB=ON -DUseInternalMiniZip=ON -DBuildPortableVersion=OFF ../..
+      cmake -G "Unix Makefiles" -DUseInternalPNG=ON -DUseInternalJPEG=ON -DUseInternalZLIB=ON -DUseInternalMiniZip=ON -DUseInternalSQLite3=ON -DBuildPortableVersion=OFF ../..
       make
       make package
   fi
