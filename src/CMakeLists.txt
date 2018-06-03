@@ -212,6 +212,8 @@ if (BuildMVMP OR BuildMVDED)
 	source_group("renderer" FILES ${MVMPDEDRendererFiles})
 	set(MVMPDEDFiles ${MVMPDEDFiles} ${MVMPDEDRendererFiles})
 
+	# Crashlog utilities
+
 	if(MSVC)
 		set(MVMPDEDWIN32Files
 			"${LIBDir}/StackWalker/include/StackWalker.h"
@@ -224,7 +226,15 @@ if (BuildMVMP OR BuildMVDED)
 		set(MVMPDEDIncludeDirs ${MVMPDEDIncludeDirs} "${LIBDir}/StackWalker/include")
 		set(MVMPDEDFiles ${MVMPDEDFiles} ${MVMPDEDWIN32Files})
 	endif()
-	
+
+	if(NOT WIN32)
+		find_package(Backtrace)
+		if(Backtrace_FOUND)
+			set(MVMPDEDIncludeDirs ${MVMPDEDIncludeDirs} ${Backtrace_INCLUDE_DIRS})
+			set(MVMPDEDLibraries ${MVMPDEDLibraries} ${Backtrace_LIBRARIES})
+		endif()
+	endif()
+
 	if(WIN32)
 		set(MVMPDEDSysFiles
 			"sys/sys_public.h"
