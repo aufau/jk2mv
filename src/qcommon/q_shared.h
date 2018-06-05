@@ -193,16 +193,16 @@
 
 //=============================================================
 
-#if defined(id386)
+#if id386
 #define ARCH_STRING "x86"
 #define Q_LITTLE_ENDIAN
-#elif defined(idx64)
-#define ARCH_STRING "x64"
+#elif idx64
+#define ARCH_STRING "amd64"
 #define Q_LITTLE_ENDIAN
-#elif defined(idarm32)
+#elif idarm32
 #define ARCH_STRING "arm"
 #define Q_LITTLE_ENDIAN
-#elif defined(idppc)
+#elif idppc
 #define ARCH_STRING "ppc"
 #define Q_BIG_ENDIAN
 #else
