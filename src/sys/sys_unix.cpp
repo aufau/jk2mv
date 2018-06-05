@@ -31,6 +31,7 @@
 #include <mv_setup.h>
 
 #ifdef Backtrace_FOUND
+#include Backtrace_HEADER
 #define Q_BACKTRACE 1
 #endif
 

@@ -3,10 +3,6 @@ if(NOT InMV)
 	message(FATAL_ERROR "Use the top-level cmake script!")
 endif(NOT InMV)
 
-# mv_setup.h preparation
-set(MVGLOBALIncludeDirs ${MVGLOBALIncludeDirs} ${CMAKE_BINARY_DIR})
-configure_file("mv_setup.h.in" "${CMAKE_BINARY_DIR}/mv_setup.h" @ONLY)
-
 if(BuildMVSDK)
 	add_subdirectory("mvsdk")
 endif()
@@ -269,6 +265,10 @@ if (BuildMVMP OR BuildMVDED)
 	source_group("api" FILES ${MVMPDEDApiFiles})
 	set(MVMPDEDFiles ${MVMPDEDFiles} ${MVMPDEDApiFiles})
 endif()
+
+# mv_setup.h preparation
+set(MVGLOBALIncludeDirs ${MVGLOBALIncludeDirs} ${CMAKE_BINARY_DIR})
+configure_file("mv_setup.h.in" "${CMAKE_BINARY_DIR}/mv_setup.h" @ONLY)
 
 # jk2mvmp
 if (BuildMVMP)
