@@ -456,6 +456,35 @@ static void IN_InitJoystick( void )
 	SDL_JoystickEventState(SDL_QUERY);
 }
 
+static void IN_InitGameController( void )
+{
+	int	i;
+	int	total;
+
+	if (!SDL_WasInit(SDL_INIT_GAMECONTROLLER)) {
+		Com_DPrintf("Calling SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER)...\n");
+		if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) == -1) {
+			Com_DPrintf("SDL_InitSubSystem(SDL_Init(SDL_INIT_GAMECONTROLLER) failed: %s\n", SDL_GetError());
+			return;
+		}
+		Com_DPrintf("SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) passed.\n");
+	}
+
+	total = SDL_NumJoysticks();
+	for (i = 0; i < total; i++) {
+		char	guid[128];
+		char	*mapping;
+		SDL_GameController *controller;
+
+		controller = SDL_GameControllerOpen(i);
+		SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i), guid, sizeof(guid));
+		Com_Printf("GUID: %s\n", guid);
+		mapping = SDL_GameControllerMapping(controller);
+		Com_Printf("Mapping: %s\n", mapping);
+		SDL_free(mapping);
+	}
+}
+
 void IN_Init( void *windowData )
 {
 	if( !SDL_WasInit( SDL_INIT_VIDEO ) )
@@ -513,6 +542,8 @@ void IN_Init( void *windowData )
 	Cvar_SetValue( "com_minimized", ( appState & SDL_WINDOW_MINIMIZED ) != 0 );
 
 	IN_InitJoystick( );
+	IN_InitGameController( );
+
 	Com_DPrintf( "------------------------------------\n" );
 }
 
@@ -729,6 +760,23 @@ static qboolean IN_ModTogglesConsole( int mod ) {
 
 /*
 ===============
+IN_JoystickAxis
+===============
+*/
+static joystickAxis_t IN_JoystickAxis(SDL_GameControllerAxis axis) {
+	switch (axis) {
+	case SDL_CONTROLLER_AXIS_LEFTX:			return AXIS_SIDE;
+	case SDL_CONTROLLER_AXIS_LEFTY:			return AXIS_FORWARD;
+	case SDL_CONTROLLER_AXIS_RIGHTX:		return AXIS_YAW;
+	case SDL_CONTROLLER_AXIS_RIGHTY:		return AXIS_PITCH;
+	case SDL_CONTROLLER_AXIS_TRIGGERLEFT:	return AXIS_UP;
+	case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:	return MAX_JOYSTICK_AXIS;
+	default:								return MAX_JOYSTICK_AXIS;
+	}
+}
+
+/*
+===============
 IN_ProcessEvents
 ===============
 */
@@ -846,6 +894,24 @@ static void IN_ProcessEvents( int eventTime )
 				{
 					Sys_QueEvent( eventTime, SE_KEY, A_MWHEELDOWN, qtrue, 0, NULL );
 					Sys_QueEvent( eventTime, SE_KEY, A_MWHEELDOWN, qfalse, 0, NULL );
+				}
+				break;
+
+			case SDL_CONTROLLERAXISMOTION:
+				{
+					joystickAxis_t axis;
+					int	value;
+
+					axis = IN_JoystickAxis((SDL_GameControllerAxis)e.caxis.axis);
+
+					// TODO: deadzone; round up
+					if (e.caxis.value < 0 ) {
+						value = 127 * e.caxis.value / SDL_JOYSTICK_AXIS_MIN;
+					} else {
+						value = - 127 * e.caxis.value / SDL_JOYSTICK_AXIS_MAX;
+					}
+
+					Sys_QueEvent( eventTime, SE_JOYSTICK_AXIS, axis, value, 0, NULL );
 				}
 				break;
 
