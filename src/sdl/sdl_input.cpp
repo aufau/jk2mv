@@ -915,6 +915,16 @@ static void IN_ProcessEvents( int eventTime )
 				}
 				break;
 
+			case SDL_CONTROLLERDEVICEADDED:
+			case SDL_CONTROLLERDEVICEREMOVED:
+			case SDL_CONTROLLERDEVICEREMAPPED:
+				{
+					for (int axis = 0; axis < MAX_JOYSTICK_AXIS; axis++) {
+						Sys_QueEvent( eventTime, SE_JOYSTICK_AXIS, axis, 0, 0, NULL);
+					}
+				}
+				break;
+
 			case SDL_QUIT:
 				Cbuf_ExecuteText(EXEC_NOW, "quit Closed window\n");
 				break;
