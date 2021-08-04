@@ -392,6 +392,12 @@ void S_Init( void )
 			s_numChannels++;
 		}
 
+		if (alIsExtensionPresent("AL_SOFT_direct_channels") == AL_TRUE) {
+			// play stereo background music without virtualized output speakers
+			ALenum alDirectChannelsSoft = alGetEnumValue("AL_DIRECT_CHANNELS_SOFT");
+			alSourcei(s_channels[0].alSource, alDirectChannelsSoft, AL_TRUE);
+		}
+
 		// Generate AL Buffers for streaming audio playback (used for MP3s)
 		ch = s_channels + 1;
 		for (i = 1; i < s_numChannels; i++, ch++)
