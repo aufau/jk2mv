@@ -1764,6 +1764,20 @@ void S_AddRealLoopingSound( int entityNum, const vec3_t origin, const vec3_t vel
 //
 static qboolean LoopSound_ChannelInit(loopSound_t *pLoopSound, int iLeftVol, int iRightVol)
 {
+#ifdef USE_OPENAL
+	if (s_UseOpenAL)
+	{
+		if (numLoopChannels == s_numChannels)
+			return qfalse;
+	}
+	else
+#endif
+	{
+		if (numLoopChannels == MAX_CHANNELS) {
+			return qfalse;
+		}
+	}
+
 	// allocate a channel
 	//
 	channel_t *ch = &loop_channels[numLoopChannels];
@@ -1795,20 +1809,6 @@ static qboolean LoopSound_ChannelInit(loopSound_t *pLoopSound, int iLeftVol, int
 	}
 
 	numLoopChannels++;
-
-#ifdef USE_OPENAL
-	if (s_UseOpenAL)
-	{
-		if (numLoopChannels == s_numChannels)
-			return qfalse;
-	}
-	else
-#endif
-	{
-		if (numLoopChannels == MAX_CHANNELS) {
-			return qfalse;
-		}
-	}
 
 	return qtrue;
 }
