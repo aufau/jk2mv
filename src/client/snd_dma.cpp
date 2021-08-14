@@ -2760,7 +2760,6 @@ void UpdateLoopingSounds()
 	channel_t *ch;
 	loopSound_t	*loop;
 	float pos[3];
-	float fVolume = 0.003922f;	// 1.f / 255.f
 
 #ifdef _DEBUG
 	// Clear AL Error State
@@ -2808,7 +2807,10 @@ void UpdateLoopingSounds()
 		}
 
 		alSourcei(s_channels[source].alSource, AL_LOOPING, AL_TRUE);
-		alSourcef(s_channels[source].alSource, AL_GAIN, (float)(ch->master_vol) * s_volume->value * fVolume);
+		alSourcef(s_channels[source].alSource, AL_GAIN, (float)(ch->master_vol) * s_volume->value / 255.0f);
+		alSourcef(s_channels[source].alSource, AL_REFERENCE_DISTANCE, 256.f);
+		alSourcef(s_channels[source].alSource, AL_MAX_DISTANCE, 1506.f);
+		alSourcef(s_channels[source].alSource, AL_ROLLOFF_FACTOR, 1.0f);
 
 		if (s_bEALFileLoaded)
 			UpdateEAXBuffer(ch);
