@@ -2443,14 +2443,12 @@ void S_Update_(void) {
 				{
 					alSourcef(s_channels[source].alSource, AL_REFERENCE_DISTANCE, 768.0f);
 					alSourcef(s_channels[source].alSource, AL_MAX_DISTANCE, 2018.0f);
-                    alSourcef(s_channels[source].alSource, AL_ROLLOFF_FACTOR, 1.0f);
 					alSourcef(s_channels[source].alSource, AL_GAIN, ((float)(ch->master_vol) * s_volume->value) / 255.0f);
 				}
 				else
 				{
 					alSourcef(s_channels[source].alSource, AL_REFERENCE_DISTANCE, 256.f);
 					alSourcef(s_channels[source].alSource, AL_MAX_DISTANCE, 1506.f);
-					alSourcef(s_channels[source].alSource, AL_ROLLOFF_FACTOR, 1.0f);
 					alSourcef(s_channels[source].alSource, AL_GAIN, ((float)(ch->master_vol) * s_volume->value) / 255.f);
 				}
  			}
@@ -2808,9 +2806,13 @@ void UpdateLoopingSounds()
 
 		alSourcei(s_channels[source].alSource, AL_LOOPING, AL_TRUE);
 		alSourcef(s_channels[source].alSource, AL_GAIN, (float)(ch->master_vol) * s_volume->value / 255.0f);
-		alSourcef(s_channels[source].alSource, AL_REFERENCE_DISTANCE, 256.f);
-		alSourcef(s_channels[source].alSource, AL_MAX_DISTANCE, 1506.f);
-		alSourcef(s_channels[source].alSource, AL_ROLLOFF_FACTOR, 1.0f);
+
+		if (s_bEAX) {
+			alSourcef(s_channels[source].alSource, AL_REFERENCE_DISTANCE, 400.f);
+		} else {
+			alSourcef(s_channels[source].alSource, AL_REFERENCE_DISTANCE, 256.f);
+			alSourcef(s_channels[source].alSource, AL_MAX_DISTANCE, 1506.f);
+		}
 
 		if (s_bEALFileLoaded)
 			UpdateEAXBuffer(ch);
