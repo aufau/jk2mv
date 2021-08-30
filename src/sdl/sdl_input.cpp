@@ -7,6 +7,7 @@
 static cvar_t *in_keyboardDebug     = NULL;
 
 static SDL_Joystick *stick = NULL;
+static SDL_GameController *controller = NULL;
 
 static qboolean mouseAvailable = qfalse;
 static qboolean mouseActive = qfalse;
@@ -19,8 +20,18 @@ static cvar_t *in_joystickThreshold = NULL;
 static cvar_t *in_joystickNo        = NULL;
 static cvar_t *in_joystickUseAnalog = NULL;
 
-static cvar_t *in_gamepadRSInvertX    = NULL;
-static cvar_t *in_gamepadRSInvertY    = NULL;
+static cvar_t *in_gamepadRSInvertX          = NULL;
+static cvar_t *in_gamepadRSInvertY          = NULL;
+static cvar_t *in_gamepadRSSquareDeadzone   = NULL;
+static cvar_t *in_gamepadRSInnerDeadzone    = NULL;
+static cvar_t *in_gamepadRSOuterDeadzone    = NULL;
+static cvar_t *in_gamepadLSSquareDeadzone   = NULL;
+static cvar_t *in_gamepadLSInnerDeadzone    = NULL;
+static cvar_t *in_gamepadLSOuterDeadzone    = NULL;
+static cvar_t *in_gamepadLTInnerDeadzone    = NULL;
+static cvar_t *in_gamepadLTOuterDeadzone    = NULL;
+static cvar_t *in_gamepadRTInnerDeadzone    = NULL;
+static cvar_t *in_gamepadRTOuterDeadzone    = NULL;
 
 static SDL_Window *SDL_window = NULL;
 
@@ -459,13 +470,38 @@ static void IN_InitJoystick( void )
 	SDL_JoystickEventState(SDL_QUERY);
 }
 
+#define GAMEPAD_DEF_INNER_DEADZONE 0.1
+#define GAMEPAD_DEF_OUTER_DEADZONE 1.0
+
 static void IN_InitGameController( void )
 {
 	int	i;
 	int	total;
 
-	in_gamepadRSInvertX = Cvar_Get( "in_gamepadRSInvertX", "1", CVAR_ARCHIVE | CVAR_GLOBAL);
-	in_gamepadRSInvertY = Cvar_Get( "in_gamepadRSInvertY", "1", CVAR_ARCHIVE | CVAR_GLOBAL);
+	// RS = Right Stick
+	in_gamepadRSInvertX = Cvar_Get("in_gamepadRSInvertX", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadRSInvertY = Cvar_Get("in_gamepadRSInvertY", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadRSSquareDeadzone = Cvar_Get("in_gamepadRSSquareDeadzone", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadRSInnerDeadzone = Cvar_Get("in_gamepadRSInnerDeadzone", XSTR(GAMEPAD_DEF_INNER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadRSInnerDeadzone->modified = qtrue; // validate next frame
+	in_gamepadRSOuterDeadzone = Cvar_Get("in_gamepadRSOuterDeadzone", XSTR(GAMEPAD_DEF_OUTER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadRSOuterDeadzone->modified = qtrue; // validate next frame
+	// LS = Left Stick
+	in_gamepadLSSquareDeadzone = Cvar_Get("in_gamepadLSSquareDeadzone", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadLSInnerDeadzone = Cvar_Get("in_gamepadLSInnerDeadzone", XSTR(GAMEPAD_DEF_INNER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadLSInnerDeadzone->modified = qtrue; // validate next frame
+	in_gamepadLSOuterDeadzone = Cvar_Get("in_gamepadLSOuterDeadzone", XSTR(GAMEPAD_DEF_OUTER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadLSOuterDeadzone->modified = qtrue; // validate next frame
+	// LT = Left Trigger
+	in_gamepadLTInnerDeadzone = Cvar_Get("in_gamepadLTInnerDeadzone", XSTR(GAMEPAD_DEF_INNER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadLTInnerDeadzone->modified = qtrue; // validate next frame
+	in_gamepadLTOuterDeadzone = Cvar_Get("in_gamepadLTOuterDeadzone", XSTR(GAMEPAD_DEF_OUTER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadLTOuterDeadzone->modified = qtrue; // validate next frame
+	// RT = Right Trigger
+	in_gamepadRTInnerDeadzone = Cvar_Get("in_gamepadRTInnerDeadzone", XSTR(GAMEPAD_DEF_INNER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadRTInnerDeadzone->modified = qtrue; // validate next frame
+	in_gamepadRTOuterDeadzone = Cvar_Get("in_gamepadRTOuterDeadzone", XSTR(GAMEPAD_DEF_OUTER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadRTOuterDeadzone->modified = qtrue; // validate next frame
 
 	if (!SDL_WasInit(SDL_INIT_GAMECONTROLLER)) {
 		Com_DPrintf("Calling SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER)...\n");
@@ -480,7 +516,6 @@ static void IN_InitGameController( void )
 	for (i = 0; i < total; i++) {
 		char	guid[128];
 		char	*mapping;
-		SDL_GameController *controller;
 
 		if (SDL_IsGameController(i)) {
 			controller = SDL_GameControllerOpen(i);
@@ -489,6 +524,7 @@ static void IN_InitGameController( void )
 			mapping = SDL_GameControllerMapping(controller);
 			Com_Printf("Mapping: %s\n", mapping);
 			SDL_free(mapping);
+			break;
 		}
 	}
 }
@@ -768,23 +804,6 @@ static qboolean IN_ModTogglesConsole( int mod ) {
 
 /*
 ===============
-IN_JoystickAxis
-===============
-*/
-static joystickAxis_t IN_JoystickAxis(SDL_GameControllerAxis axis) {
-	switch (axis) {
-	case SDL_CONTROLLER_AXIS_LEFTX:			return AXIS_SIDE;
-	case SDL_CONTROLLER_AXIS_LEFTY:			return AXIS_FORWARD;
-	case SDL_CONTROLLER_AXIS_RIGHTX:		return AXIS_YAW;
-	case SDL_CONTROLLER_AXIS_RIGHTY:		return AXIS_PITCH;
-	case SDL_CONTROLLER_AXIS_TRIGGERLEFT:	return AXIS_UP;
-	case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:	return AXIS_UP;
-	default:								return MAX_JOYSTICK_AXIS;
-	}
-}
-
-/*
-===============
 IN_ProcessEvents
 ===============
 */
@@ -906,41 +925,6 @@ static void IN_ProcessEvents( int eventTime )
 				break;
 
 			case SDL_CONTROLLERAXISMOTION:
-				{
-					joystickAxis_t axis;
-					int	value;
-
-					axis = IN_JoystickAxis((SDL_GameControllerAxis)e.caxis.axis);
-
-					if (e.caxis.value < 0 ) {
-						value = - 127 * floorf(e.caxis.value) / SDL_JOYSTICK_AXIS_MIN;
-					} else {
-						value = 127 * ceilf(e.caxis.value) / SDL_JOYSTICK_AXIS_MAX;
-					}
-
-					switch (e.caxis.axis) {
-					case SDL_CONTROLLER_AXIS_TRIGGERLEFT:	value = - value;	break;
-					case SDL_CONTROLLER_AXIS_LEFTY:
-						value = - value;
-						break;
-					case SDL_CONTROLLER_AXIS_RIGHTX:
-						if (in_gamepadRSInvertX->integer) {
-							value = - value;
-						}
-						break;
-					case SDL_CONTROLLER_AXIS_RIGHTY:
-						if (!in_gamepadRSInvertY->integer) {
-							value = - value;
-						}
-						break;
-					}
-
-					if (abs(value) < 10) {
-						value = 0;
-					}
-
-					Sys_QueEvent( eventTime, SE_JOYSTICK_AXIS, axis, value, 0, NULL );
-				}
 				break;
 
 			case SDL_CONTROLLERBUTTONDOWN:
@@ -1201,6 +1185,246 @@ static void IN_JoyMove( int eventTime )
 	stick_state.oldaxes = axes;
 }
 
+static void IN_PadDeadzoneAxis(float *inX, float inner, float outer)
+{
+	float x = *inX;
+
+	// normalize position so that coordinates within deadzone are achievable
+
+	if (x >= 0) {
+		x = (x - inner) / (outer - inner);
+		x = Com_Clamp(0.0f, 1.0f, x);
+	} else {
+		x = (x + inner) / (outer - inner);
+		x = Com_Clamp(-1.0f, 0.0f, x);
+	}
+
+	*inX = x;
+}
+
+static void IN_PadDeadzoneCircular(float *inX, float *inY, float inner, float outer)
+{
+	// bg_pmove.c::PM_CmdScale() normalizes cmd->forwardmove and
+	// cmd->rightmove such, that (127,127) is the same acceleration as
+	// (127,0).
+	// Controller Stick input space is [-1.0,1.0]x[-1.0,1.0] square.
+	//
+	// In modern controllers input space represents controller stick
+	// tilt angles
+	//
+	// Corners of the input space square are often unreachable because
+	// circular stick cutout in controller case limits its movement
+	//
+	// Circles in input space should map to squares in output space,
+	// because then stick tilt translates to acceleration directly.
+	//
+	// circle of radius 1 should map to square of edge 2 so that max
+	// diagonal values/acceleration can be achieved.
+	//
+	// deadzone shape must be circular in physical world (ergo in
+	// input space)
+	//
+	// deadzone must be normalized so that all output coordinates are
+	// achievable
+
+	float x = *inX;
+	float y = *inY;
+	float r = sqrtf((double)x * x + (double)y * y);
+
+	// normalize x,y to circle of radius 1
+	r = (r - inner) / (outer - inner);
+	// deadzone
+	r = Com_Clamp(0.0f, 1.0f, r);
+
+	if (x == 0.0f) {
+		*inY = r;
+		return;
+	}
+
+	if (y == 0.0f) {
+		*inX = r;
+		return;
+	}
+
+	// project x,y onto a square with edge length 2 * r
+	qboolean tr_half = (qboolean)(x + y >= 0);
+	qboolean tl_half = (qboolean)(y - x >= 0);
+	if        ( tr_half && !tl_half) { // right square edge
+		y = r * y / x;
+		x = r;
+	} else if (!tr_half && !tl_half) { // bottom square edge
+		x = - r * x / y;
+		y = - r;
+	} else if (!tr_half &&  tl_half) { // left square edge
+		y = - r * y / x;
+		x = - r;
+	} else if ( tr_half &&  tl_half) { // top square edge
+		x = r * x / y;
+		y = r;
+	}
+
+	// clamp any numerical errors
+	*inX = Com_Clamp(-1.0f, 1.0f, x);
+	*inY = Com_Clamp(-1.0f, 1.0f, y);
+}
+
+static void IN_PadDeadzone(float *inX, float *inY, float inner, float outer, qboolean square)
+{
+	if (square) {
+		// square deadzone, independent on each axis
+		IN_PadDeadzoneAxis(inX, inner, outer);
+		IN_PadDeadzoneAxis(inY, inner, outer);
+	} else {
+		IN_PadDeadzoneCircular(inX, inY, inner, outer);
+	}
+}
+
+/*
+===============
+IN_SDLControllerGetAxis
+
+Returns SDL_GameControllerAxis value in [-1.0,1.0] range
+or [0.0,1.0] for trigger axes
+===============
+*/
+static float IN_SDLControllerGetAxis(SDL_GameControllerAxis axis)
+{
+	float value = SDL_GameControllerGetAxis(controller, axis);
+
+	if (value >= 0) {
+		return value / SDL_JOYSTICK_AXIS_MAX;
+	} else {
+		return - value / SDL_JOYSTICK_AXIS_MIN;
+	}
+}
+
+static qboolean IN_PadValidDeadzone(float inner, float outer) {
+	return (qboolean)((0.0f <= inner) && (inner + 0.05f < outer) && (outer <= 1.0f));
+}
+
+static void IN_PadGetLSDeadzone(float *innerp, float *outerp)
+{
+	float inner = in_gamepadLSInnerDeadzone->value;
+	float outer = in_gamepadLSOuterDeadzone->value;
+
+	if (!IN_PadValidDeadzone(inner, outer))
+	{
+		if (in_gamepadLSInnerDeadzone->modified || in_gamepadLSOuterDeadzone->modified) {
+			in_gamepadLSInnerDeadzone->modified = qfalse;
+			in_gamepadLSOuterDeadzone->modified = qfalse;
+			Com_Printf(S_COLOR_YELLOW "WARNING: Incorrect Left Stick deadzones. Using default values\n");
+		}
+		inner = GAMEPAD_DEF_INNER_DEADZONE;
+		outer = GAMEPAD_DEF_OUTER_DEADZONE;
+	}
+
+	*innerp = inner;
+	*outerp = outer;
+}
+
+static void IN_PadGetRSDeadzone(float *innerp, float *outerp)
+{
+	float inner = in_gamepadRSInnerDeadzone->value;
+	float outer = in_gamepadRSOuterDeadzone->value;
+
+	if (!IN_PadValidDeadzone(inner, outer))
+	{
+		if (in_gamepadRSInnerDeadzone->modified || in_gamepadRSOuterDeadzone->modified) {
+			in_gamepadRSInnerDeadzone->modified = qfalse;
+			in_gamepadRSOuterDeadzone->modified = qfalse;
+			Com_Printf(S_COLOR_YELLOW "WARNING: Incorrect Right Stick deadzones. Using default values\n");
+		}
+		inner = GAMEPAD_DEF_INNER_DEADZONE;
+		outer = GAMEPAD_DEF_OUTER_DEADZONE;
+	}
+
+	*innerp = inner;
+	*outerp = outer;
+}
+
+static void IN_PadGetLTDeadzone(float *innerp, float *outerp)
+{
+	float inner = in_gamepadLTInnerDeadzone->value;
+	float outer = in_gamepadLTOuterDeadzone->value;
+
+	if (!IN_PadValidDeadzone(inner, outer))
+	{
+		if (in_gamepadLTInnerDeadzone->modified || in_gamepadLTOuterDeadzone->modified) {
+			in_gamepadLTInnerDeadzone->modified = qfalse;
+			in_gamepadLTOuterDeadzone->modified = qfalse;
+			Com_Printf(S_COLOR_YELLOW "WARNING: Incorrect Left Trigger deadzones. Using default values\n");
+		}
+		inner = GAMEPAD_DEF_INNER_DEADZONE;
+		outer = GAMEPAD_DEF_OUTER_DEADZONE;
+	}
+
+	*innerp = inner;
+	*outerp = outer;
+}
+
+static void IN_PadGetRTDeadzone(float *innerp, float *outerp)
+{
+	float inner = in_gamepadRTInnerDeadzone->value;
+	float outer = in_gamepadRTOuterDeadzone->value;
+
+	if (!IN_PadValidDeadzone(inner, outer))
+	{
+		if (in_gamepadRTInnerDeadzone->modified || in_gamepadRTOuterDeadzone->modified) {
+			in_gamepadRTInnerDeadzone->modified = qfalse;
+			in_gamepadRTOuterDeadzone->modified = qfalse;
+			Com_Printf(S_COLOR_YELLOW "WARNING: Incorrect Right Trigger deadzones. Using default values\n");
+		}
+		inner = GAMEPAD_DEF_INNER_DEADZONE;
+		outer = GAMEPAD_DEF_OUTER_DEADZONE;
+	}
+
+	*innerp = inner;
+	*outerp = outer;
+}
+
+static void IN_PadMove(int eventTime)
+{
+	// Process gamepad analogue inputs:
+	// 1. Filtering - not implemented
+	// 2. Deadzoning - inner/outer square/circle
+	// 3. Bias - deadzone is sufficient nowadays
+	// 4. Shaping - more sensitivity at high values
+
+	float x, y;
+	float inner, outer;
+
+	if (!controller) {
+		return;
+	}
+
+	SDL_GameControllerUpdate();
+
+	x = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_LEFTX);
+	y = - IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_LEFTY);
+	IN_PadGetLSDeadzone(&inner, &outer);
+	IN_PadDeadzone(&x, &y, inner, outer, (qboolean)!!in_gamepadLSSquareDeadzone->integer);
+	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_SIDE   , roundf(127 * x), 0, NULL);
+	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_FORWARD, roundf(127 * y), 0, NULL);
+
+	x = - IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_RIGHTX);
+	y = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_RIGHTY);
+	if (in_gamepadRSInvertX->integer)
+		x = -x;
+	if (in_gamepadRSInvertY->integer)
+		y = -y;
+	IN_PadGetRSDeadzone(&inner, &outer);
+	IN_PadDeadzone(&x, &y, inner, outer, (qboolean)!!in_gamepadLSSquareDeadzone->integer);
+	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_YAW  , roundf(127 * x), 0, NULL);
+	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_PITCH, roundf(127 * y), 0, NULL);
+
+	x = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+	IN_PadGetRTDeadzone(&inner, &outer);
+	IN_PadDeadzoneAxis(&x, inner, outer);
+	y = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_TRIGGERLEFT);
+	IN_PadGetLTDeadzone(&inner, &outer);
+	IN_PadDeadzoneAxis(&y, inner, outer);
+	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_UP, roundf(127 * (x - y)), 0, NULL);
+}
 
 void IN_Frame (void) {
 	static int	eventTime;
@@ -1208,6 +1432,7 @@ void IN_Frame (void) {
 	Uint32		flags;
 
 	IN_JoyMove( eventTime );
+	IN_PadMove( eventTime );
 
 	// If not DISCONNECTED (main menu) or ACTIVE (in game), we're loading
 	loading = (qboolean)( cls.state != CA_DISCONNECTED && cls.state != CA_ACTIVE && !(Key_GetCatcher() & KEYCATCH_UI));
