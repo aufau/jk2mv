@@ -1543,12 +1543,16 @@ given keynum.
 ===================
 */
 // Returns a console/config file friendly name for the key
-const char *Key_KeynumToString( int keynum )
+const char *Key_KeynumToString( int keynum, qboolean ui )
 {
 	const char	*name;
 
 	name = Key_KeynumValid(keynum);
 
+	if ( !name && ui )
+	{
+		name = keynames[keynum].uiName;
+	}
 	// Check for friendly name
 	if ( !name )
 	{
@@ -1566,7 +1570,6 @@ const char *Key_KeynumToString( int keynum )
 	}
 	return name;
 }
-
 
 
 /*

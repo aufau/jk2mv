@@ -669,7 +669,7 @@ Key_KeynumToStringBuf
 //
 void Key_KeynumToStringBuf( int keynum, char *buf, int buflen )
 {
-	const char *psKeyName = Key_KeynumToString( keynum/*, qtrue */);
+	const char *psKeyName = Key_KeynumToString( keynum, qtrue/*, qtrue */);
 
 	// see if there's a more friendly (or localised) name...
 	//

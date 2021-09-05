@@ -36,6 +36,7 @@ typedef struct
 	const char	*name;
 	int		keynum;
 	bool	menukey;
+	const char	*uiName;
 } keyname_t;
 
 extern keyGlobals_t	kg;

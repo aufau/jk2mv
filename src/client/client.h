@@ -528,7 +528,7 @@ void IN_CenterView (void);
 void CL_VerifyCode( void );
 
 float CL_KeyState (kbutton_t *key);
-const char *Key_KeynumToString( int keynum/*, qboolean bTranslate */ ); //note: translate is only called for menu display not configs
+const char *Key_KeynumToString( int keynum, qboolean ui = qfalse/*, qboolean bTranslate */ ); //note: translate is only called for menu display not configs
 
 int Key_GetProtocolKey15(mvversion_t protocol, int key15);
 int Key_GetProtocolKey(mvversion_t protocol, int key16);
