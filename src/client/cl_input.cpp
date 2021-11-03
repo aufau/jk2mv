@@ -368,6 +368,7 @@ cvar_t	*cl_yawspeed;
 cvar_t	*cl_pitchspeed;
 
 cvar_t	*cl_run;
+cvar_t	*cl_autoWalkButton;
 
 cvar_t	*cl_anglespeedkey;
 
@@ -480,15 +481,7 @@ CL_JoystickMove
 =================
 */
 void CL_JoystickMove( usercmd_t *cmd ) {
-	int		movespeed;
 	float	anglespeed;
-
-	if ( in_speed.active ^ cl_run->integer ) {
-		movespeed = 2;
-	} else {
-		movespeed = 1;
-		cmd->buttons |= BUTTON_WALKING;
-	}
 
 	if ( in_speed.active ) {
 		anglespeed = 0.001 * cls.frametime * cl_anglespeedkey->value;
@@ -721,6 +714,15 @@ usercmd_t CL_CreateCmd( void ) {
 
 	// get basic movement from joystick
 	CL_JoystickMove( &cmd );
+
+	// this is useful for joystick input. 64 is from bg_pmove.c
+	if ( cl_autoWalkButton->integer ) {
+		if ( abs(cmd.rightmove) <= 64 && abs(cmd.forwardmove) <= 64 ) {
+			cmd.buttons |= BUTTON_WALKING;
+		} else {
+			cmd.buttons &= ~BUTTON_WALKING;
+		}
+	}
 
 	// check to make sure the angles haven't wrapped
 	if ( cl.viewangles[PITCH] - oldAngles[PITCH] > 90 ) {
