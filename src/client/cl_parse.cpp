@@ -221,8 +221,7 @@ void CL_ParseSnapshot( msg_t *msg ) {
 	// the frame, but not use it, then ask for a non-compressed
 	// message
 	if ( newSnap.deltaNum <= 0 ) {
-		// uncompressed frame
-		newSnap.valid = (qboolean)(newSnap.messageNum > cl.snap.messageNum);
+		newSnap.valid = qtrue;		// uncompressed frame
 		old = NULL;
 		clc.demowaiting = qfalse;	// we can start recording now
 	} else {
