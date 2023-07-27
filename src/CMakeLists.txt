@@ -42,7 +42,7 @@ if (BuildMVMP OR BuildMVDED)
 
 	# sqlite3
 	if(NOT UseInternalSQLite3)
-		find_package(SQLite3)
+		find_package(SQLITE3)
 		if(NOT SQLITE3_FOUND)
 			message(FATAL_ERROR "SQLite3 dev files not found! Install it or set UseInternalSQLite3 ON")
 		endif()
