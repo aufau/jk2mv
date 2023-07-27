@@ -56,7 +56,9 @@ set(AssetsFiles
 	"strip/mv.sp"
 
 	"ui/jk2mpingame.txt"
+	"ui/jk2mp/controls.menu_patch"
 	"ui/jk2mp/createserver.menu_patch"
+	"ui/jk2mp/ingame_controls.menu_patch"
 	"ui/jk2mp/ingame_player.menu_patch"
 	"ui/jk2mp/ingame_setup.menu_patch"
 	"ui/jk2mp/ingame_setup_modoptions.menu"
@@ -94,7 +96,7 @@ add_zip_command(${CMAKE_CURRENT_BINARY_DIR}/assetsmv.pk3 ${OUTFILE}
 
 add_custom_target(assetsmv DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/assetsmv.pk3" ${AssetsFiles})
 
-if(WIN32)
+if(WIN32 OR BuildPortableVersion)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/assetsmv.pk3 DESTINATION "base")
 elseif(APPLE)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/assetsmv.pk3 DESTINATION "jk2mvmp.app/Contents/MacOS/base")

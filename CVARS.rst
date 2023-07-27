@@ -27,6 +27,51 @@ New and Modified Cvars
 :Description:
    Print timestamps in qconsole.log and system console.
 
+..
+
+:Name: fs_forcegame
+:Values: Foldername
+:Default: "" (Not set)
+:Description:
+   Overrides the active folder, allowing a server/client to store configs and
+   other data in a specific folder independent of the active mod (``fs_game``).
+   All new configs, screenshots, demos, etc. stored by the game end up in the
+   specified folder. This folder may also be "base".
+
+   Load order:
+
+   | ``base``
+   | ``fs_basegame cvar``
+   | ``fs_game cvar``
+   | ``fs_forcegame cvar``
+
+..
+
+:Name: fs_assetspathjka
+:Values: Foldername
+:Default: "" (Not set on portable); autodetected for non-portable
+:Description:
+   Sets the path to load JKA assets from.
+
+..
+
+:Name: fs_basejka
+:Values: Foldername
+:Default: "basejka" (if fs_assetspathjka is empty); "base" (if fs_assetspathjka is set)
+:Description:
+   Name of the folder containing the JKA assets within fs_assetspathjka. If
+   fs_assetspathjka is not set the game tries to load assets from the specified
+   folder in fs_basepath and fs_homepath.
+
+..
+
+:Name: fs_loadjka
+:Values: "0", "1"
+:Default: "1"
+:Description:
+   Enables loading of JKA assets when fs_assetspathjka point to a valid JKA
+   folder.
+
 -----------
 Client-Side
 -----------
@@ -114,6 +159,19 @@ Client-Side
 :Default: "1"
 :Description:
    Draw local timestamps in console and condump output.
+
+..
+
+:Name: in_mouse
+:Values: "0", "1", "2", "3"
+:Default: "1"
+:Description:
+   Mouse input mode
+
+   | 0: Mouse disabled.
+   | 1: Same as in retail client - high latency, follows desktop mouse speed and acceleration settings.
+   | 2: Raw, no acceleration, lowest latency.
+   | 3: Raw, lowest latency but with desktop mouse speed and acceleration settings.
 
 ..
 
@@ -249,6 +307,15 @@ Client-Side
 
 ..
 
+:Name: r_highdpi
+:Values: "0", "1"
+:Default: "1"
+:Description:
+   Enable / Disable high DPI rendering when desktop scaling is
+   enabled.
+
+..
+
 :Name: r_saberGlow
 :Values: "0", "1"
 :Default: "1"
@@ -265,6 +332,48 @@ Client-Side
    Adjust OpenGL texture Level of Detail bias. Useful for some low
    quality video drivers. Small negative values (eg "-0.2") can help
    with distant textures appearing blurry.
+
+..
+
+:Name: s_muteWhenMinimized
+:Values: "0", "1"
+:Default: "1"
+:Description:
+   Mute all sounds when client window is minimized.
+
+..
+
+:Name: s_muteWhenUnfocused
+:Values: "0", "1"
+:Default: "1"
+:Description:
+   Mute all sounds when client window is unfocused.
+
+..
+
+:Name: r_printMissingModels
+:Values: "0", "1"
+:Default: "1"
+:Description:
+   Print a warning when a model fails to load.
+
+..
+
+:Name: con_opacity
+:Values: 1 >= Decimal >= 0
+:Description:
+   Opacity of the in-game console.
+
+..
+
+:Name: con_skipNotifyKeyword
+:Values: String
+:Default: "" (Not set)
+:Description:
+   Keyword used by modules to print messags into the console that
+   should not appear as notifications. JKA uses the builtin keyword
+   ``[skipnotify]`` and some mods seem to have adopted this. To increase
+   compatibility with those mods this cvar can be used.
 
 -----------
 Server-Side
@@ -398,6 +507,41 @@ Server-Side
 
 ..
 
+:Name: mv_resetServerTime
+:Valid: "0", "1", "2"
+:Default: "1"
+:Description:
+   Reset internal server time on map restart. Helps to avoid high
+   server time bugs. Breaks queue in duel gametype on basejk. May
+   cause issues with other mods.
+
+   | 0: Never (compatible)
+   | 1: Always except in Duel gametype
+   | 2: Always
+
+..
+
+:Name: sv_autoWhitelist
+:Values: "0", "1"
+:Default: "1"
+:Description:
+   Automatically add IPs of players to a whitelist. Whitelisted IPs
+   are can still access the server while it's under a DOS attack and
+   they are stored in ipwhitelist.dat file. Collecting IP addresses
+   without consent may be against European Union's General Data
+   Protection Regulation.
+
+..
+
+:Name: sv_enforceSnaps
+:Values: "0", "1"
+:Default: "0"
+:Description:
+   Ignore the client preference for "snaps" and try to send a snapshot per
+   server frame (sv_fps) if sv_maxSnaps and the client rate permit it.
+
+..
+
 :Name: sv_floodProtect
 :Values: Integer >= 0
 :Default: "3"
@@ -438,11 +582,59 @@ Server-Side
 
 ..
 
+:Name: sv_maxRate
+:Valid: "0", Integer >= 1000
+:Default: "90000"
+:Description:
+   Maximum rate for each client. The client rate limits the maximum amount of
+   snapshots sent to a client.
+
+..
+
+:Name: sv_maxSnaps
+:Valid: Integer > 0
+:Default: "30"
+:Description:
+   Maximum amount of snapshots each client should receive. This can also be
+   limited by the client rate.
+
+..
+
+:Name: sv_minRate
+:Valid: Integer >= 1000
+:Default: "1000"
+:Description:
+   Minimum rate for each client. The client rate limits the maximum amount of
+   snapshots sent to a client.
+
+..
+
+:Name: sv_minSnaps
+:Valid: Integer > 0
+:Default: "1"
+:Description:
+   Minimum amount of snapshots each client should receive. This can also be
+   limited by the client rate.
+
+..
+
 :Name: sv_pingFix
 :Values: "0", "1"
 :Default: "1"
 :Description:
    Enable more accurate and bug-free ping calculation.
+
+..
+
+:Name: sv_dynamicSnapshots
+:Values: "0", "1"
+:Default: "1"
+:Description:
+   Try to send partial snapshots if a snapshot message would otherwise overflow.
+   This should help to avoid clients from dropping due to
+   ``CL_ParseServerMessage: read past end of server message`` when maps or mods
+   cause a lot of commands to be sent to a client in a short interval on a busy
+   server.
 
 ==================
 Undocumented Cvars

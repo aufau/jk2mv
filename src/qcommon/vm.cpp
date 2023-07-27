@@ -664,6 +664,8 @@ vm_t *VM_Restart(vm_t *vm)
 	// free the original file
 	FS_FreeFile(header);
 
+	vm->gameversion = MV_GetCurrentGameversion();
+
 	return vm;
 }
 
@@ -711,7 +713,7 @@ vm_t *VM_Create( const char *module, qboolean mvOverride, intptr_t (*systemCalls
 	Com_Memset(vm, 0, sizeof(vm));
 	Q_strncpyz(vm->name, module, sizeof(vm->name));
 
-	vm->mvmenu = mvOverride;
+	vm->mvmenu = 0;
 
 	if (interpret == VMI_NATIVE) {
 		// try to load as a system dll
@@ -1271,6 +1273,7 @@ void VM_VmInfo_f( void ) {
 		}
 
 		Com_Printf("    mvapi level : %i\n", vm->mvapilevel);
+		Com_Printf("    menu level  : %i\n", vm->mvmenu);
 	}
 }
 
@@ -1323,7 +1326,11 @@ void VM_SetMVAPILevel(vm_t *vm, int level) {
 	vm->mvapilevel = level;
 }
 
-qboolean VM_MVMenu(const vm_t *vm) {
+void VM_SetMVMenuLevel(vm_t *vm, int level) {
+	vm->mvmenu = level;
+}
+
+int VM_MVMenuLevel(const vm_t *vm) {
 	return vm->mvmenu;
 }
 

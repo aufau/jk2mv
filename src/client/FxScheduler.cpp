@@ -788,7 +788,10 @@ SEffectTemplate *CFxScheduler::GetNewEffectTemplate( int *id, const char *file )
 		if ( !effect->mInUse )
 		{
 			*id = i;
-			memset( effect, 0, sizeof( SEffectTemplate ));
+
+			effect->~SEffectTemplate();
+			// call constructor in-place
+			new (effect) SEffectTemplate;
 
 			// If we are a copy, we really won't have a name that we care about saving for later
 			if ( file )
@@ -1052,6 +1055,7 @@ void CFxScheduler::PlayEffect( int id, CFxBoltInterface *obj )
 	vec3_t origin, forward;
 	vec3_t axis[3];
 
+	obj->GetOrigin(origin);
 	obj->GetForward(forward);
 
 	VectorCopy( forward, axis[0] );
@@ -1238,15 +1242,7 @@ void CFxScheduler::PlayEffect( int id, CFxBoltInterface *obj )
 						sfx->mEntNum = -1;
 						sfx->mModelNum = 0;
 #endif
-						if ( origin )
-						{
-							VectorCopy( origin, sfx->mOrigin );
-						}
-						else
-						{
-							VectorClear( sfx->mOrigin );
-						}
-
+						VectorCopy( origin, sfx->mOrigin );
 						AxisCopy( axis, sfx->mAxis );
 #if 0//#ifndef EFFECTSED#ifndef EFFECTSED
 					}

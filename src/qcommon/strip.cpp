@@ -21,7 +21,9 @@
 //	#include "../qcommon/palette.h"
 #endif
 
+#include <list>
 
+using namespace std;
 
 #ifdef _STRIPED_
 
@@ -1753,6 +1755,11 @@ void SP_Init(void)
 	SP_Register("mp_svgame",SP_REGISTER_REQUIRED);	//reference is SVINGAME
 	SP_Register("sp_ingame",SP_REGISTER_REQUIRED);	//reference is INGAME	, needed for item pickups
 	SP_Register("keynames", 0/*SP_REGISTER_REQUIRED*/);	//reference is KEYNAMES
+}
+
+void SP_Shutdown(void)
+{
+	SP_Unload(SP_REGISTER_CLIENT | SP_REGISTER_SERVER | SP_REGISTER_MENU | SP_REGISTER_REQUIRED);
 }
 
 // called in Com_Frame, so don't take up any time! (can also be called during dedicated)

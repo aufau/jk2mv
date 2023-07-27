@@ -159,7 +159,7 @@ struct vm_s {
 
 	// for dynamic linked modules
 	void		*dllHandle;
-	intptr_t	(QDECL *entryPoint)( int callNum, ... );
+	VM_EntryPoint_t entryPoint;
 	void		(*destroy)(vm_t* self);
 	qboolean	mvOverride;
 
@@ -193,7 +193,7 @@ struct vm_s {
 	int			numJumpTableTargets;
 
 	int			mvapilevel;
-	qboolean	mvmenu;
+	int			mvmenu;
 	mvversion_t	gameversion;
 };
 

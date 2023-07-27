@@ -42,6 +42,11 @@ ipch/
 # ReSharper is a .NET coding add-in
 _ReSharper*
 
+# CMake plugin
+/.vs
+/out
+*.json
+
 #################
 ## Eclipse
 #################
@@ -88,6 +93,9 @@ Desktop.ini
 .DS_Store
 *.o
 *.so
+GTAGS
+GRTAGS
+GPATH
 
 # ignore all subdirectories of the build directory
 /build/*/*

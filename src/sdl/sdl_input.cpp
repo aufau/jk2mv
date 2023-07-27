@@ -2,7 +2,6 @@
 #include "../qcommon/qcommon.h"
 #include "../qcommon/q_shared.h"
 #include "../client/client.h"
-#include "../client/snd_public.h"
 #include "../sys/sys_local.h"
 
 static cvar_t *in_keyboardDebug     = NULL;
@@ -203,10 +202,10 @@ static fakeAscii_t IN_TranslateSDLToJKKey( SDL_Keysym *keysym, qboolean down ) {
 			case SDLK_KP_5:         key = A_KP_5;          break;
 			case SDLK_INSERT:       key = A_INSERT;        break;
 			case SDLK_KP_0:         key = A_KP_0;          break;
-			case SDLK_KP_MULTIPLY:  key = A_STAR;          break;
+			case SDLK_KP_MULTIPLY:  key = A_MULTIPLY;      break;
 			case SDLK_KP_PLUS:      key = A_KP_PLUS;       break;
 			case SDLK_KP_MINUS:     key = A_KP_MINUS;      break;
-			case SDLK_KP_DIVIDE:    key = A_FORWARD_SLASH; break;
+			case SDLK_KP_DIVIDE:    key = A_DIVIDE;        break;
 
 			case SDLK_SCROLLLOCK:   key = A_SCROLLLOCK;    break;
 			case SDLK_NUMLOCKCLEAR: key = A_NUMLOCK;       break;
@@ -295,9 +294,9 @@ static void IN_ActivateMouse( void )
 	}
 
 	// in_nograb makes no sense in fullscreen mode
-	if( !(SDL_GetWindowFlags( SDL_window ) & SDL_WINDOW_FULLSCREEN) )
+	if( in_nograb->modified || !mouseActive )
 	{
-		if( in_nograb->modified || !mouseActive )
+		if( !(SDL_GetWindowFlags( SDL_window ) & SDL_WINDOW_FULLSCREEN) )
 		{
 			if( in_nograb->integer )
 			{
@@ -309,9 +308,9 @@ static void IN_ActivateMouse( void )
 				SDL_SetRelativeMouseMode( SDL_TRUE );
 				SDL_SetWindowGrab( SDL_window, SDL_TRUE );
 			}
-
-			in_nograb->modified = qfalse;
 		}
+
+		in_nograb->modified = qfalse;
 	}
 
 	mouseActive = qtrue;
@@ -344,7 +343,7 @@ static void IN_DeactivateMouse( void )
 
 		// Don't warp the mouse unless the cursor is within the window
 		if( SDL_GetWindowFlags( SDL_window ) & SDL_WINDOW_MOUSE_FOCUS )
-			SDL_WarpMouseInWindow( SDL_window, cls.glconfig.vidWidth / 2, cls.glconfig.vidHeight / 2 );
+			SDL_WarpMouseInWindow( SDL_window, cls.glconfig.winWidth / 2, cls.glconfig.winHeight / 2 );
 
 		mouseActive = qfalse;
 	}
@@ -470,7 +469,7 @@ void IN_Init( void *windowData )
 	Com_DPrintf( "\n------- Input Initialization -------\n" );
 
 	// joystick variables
-	in_keyboardDebug = Cvar_Get( "in_keyboardDebug", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_keyboardDebug = Cvar_Get( "in_keyboardDebug", "0", CVAR_TEMP );
 
 	in_joystick = Cvar_Get( "in_joystick", "0", CVAR_ARCHIVE | CVAR_GLOBAL | CVAR_LATCH );
 
@@ -481,6 +480,32 @@ void IN_Init( void *windowData )
 	SDL_StartTextInput( );
 
 	mouseAvailable = (qboolean)( in_mouse->value != 0 );
+
+	if (in_mouse->integer == 0) {
+		Com_DPrintf("IN_Init: Mouse input disabled\n");
+	}
+
+	if (in_mouse->integer == 1) {
+		Com_DPrintf("IN_Init: Using raw mouse input\n");
+	}
+
+	if (in_mouse->integer == 2) {
+		Com_DPrintf("IN_Init: Not using raw input\n");
+		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
+	} else {
+		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "0");
+	}
+
+#if SDL_VERSION_ATLEAST(2, 26, 0)
+	if (in_mouse->integer == 3) {
+		Com_DPrintf("IN_Init: Using raw mouse input with system scaling\n");
+		// low latency of raw mouse input with system mouse scaling
+		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "1");
+	} else {
+		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "0");
+	}
+#endif
+
 	IN_DeactivateMouse( );
 
 	int appState = SDL_GetWindowFlags( SDL_window );
@@ -839,22 +864,13 @@ static void IN_ProcessEvents( int eventTime )
 						break;
 					}
 
+					case SDL_WINDOWEVENT_HIDDEN:
 					case SDL_WINDOWEVENT_MINIMIZED:    Cvar_SetValue( "com_minimized", 1 ); break;
+					case SDL_WINDOWEVENT_SHOWN:
 					case SDL_WINDOWEVENT_RESTORED:
 					case SDL_WINDOWEVENT_MAXIMIZED:    Cvar_SetValue( "com_minimized", 0 ); break;
-					case SDL_WINDOWEVENT_FOCUS_LOST:
-					{
-						Cvar_SetValue( "com_unfocused", 1 );
-						SNDDMA_Activate(qfalse);
-						break;
-					}
-
-					case SDL_WINDOWEVENT_FOCUS_GAINED:
-					{
-						Cvar_SetValue( "com_unfocused", 0 );
-						SNDDMA_Activate(qtrue);
-						break;
-					}
+					case SDL_WINDOWEVENT_FOCUS_LOST:   Cvar_SetValue( "com_unfocused", 1 ); break;
+					case SDL_WINDOWEVENT_FOCUS_GAINED: Cvar_SetValue( "com_unfocused", 0 ); break;
 				}
 				break;
 

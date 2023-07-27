@@ -52,7 +52,6 @@ cvar_t	*com_developer;
 cvar_t	*com_dedicated;
 cvar_t	*com_timescale;
 cvar_t	*com_fixedtime;
-cvar_t	*com_dropsim;		// 0.0 to 1.0, simulated packet drops
 cvar_t	*com_journal;
 cvar_t	*com_timedemo;
 cvar_t	*com_sv_running;
@@ -92,12 +91,14 @@ void CIN_CloseAllVideos();
 
 //============================================================================
 
+static qboolean	rd_silent;
 static char		*rd_buffer;
 static size_t	rd_buffersize;
 static void		(*rd_flush)( char *buffer );
 
-void Com_BeginRedirect (char *buffer, size_t buffersize, void (*flush)( char *) )
+void Com_BeginRedirect (char *buffer, size_t buffersize, void (*flush)( char *), qboolean silent)
 {
+	rd_silent = silent;
 	if (!buffer || !buffersize || !flush)
 		return;
 	rd_buffer = buffer;
@@ -113,12 +114,13 @@ void Com_EndRedirect (void)
 		rd_flush(rd_buffer);
 	}
 
+	rd_silent = qfalse;
 	rd_buffer = NULL;
 	rd_buffersize = 0;
 	rd_flush = NULL;
 }
 
-static void Com_Puts_Ext( qboolean extendedColors, const char *msg )
+static void Com_Puts_Ext( qboolean extendedColors, qboolean skipNotify, const char *msg )
 {
 	const char *p = msg;
 
@@ -132,8 +134,8 @@ static void Com_Puts_Ext( qboolean extendedColors, const char *msg )
 	}
 
 	// echo to console if we're not a dedicated server
-	if ( com_dedicated && !com_dedicated->integer ) {
-		CL_ConsolePrint( msg, extendedColors );
+	if ( com_dedicated && !com_dedicated->integer && !rd_silent ) {
+		CL_ConsolePrint( msg, extendedColors, skipNotify );
 	}
 
 	while (*p) {
@@ -167,7 +169,7 @@ static void Com_Puts_Ext( qboolean extendedColors, const char *msg )
 
 		// logfile
 		if ( com_logfile && com_logfile->integer ) {
-			if ( !logfile ) {
+			if ( logfile == 0 ) {
 				struct tm *newtime;
 				time_t aclock;
 
@@ -175,14 +177,20 @@ static void Com_Puts_Ext( qboolean extendedColors, const char *msg )
 				newtime = localtime( &aclock );
 
 				logfile = FS_FOpenFileWrite( "qconsole.log" );
-				Com_Printf( "logfile opened on %s\n", asctime( newtime ) );
-				if ( com_logfile->integer > 1 ) {
-					// force it to not buffer so we get valid
-					// data even if we are crashing
-					FS_ForceFlush(logfile);
+				if ( logfile ) {
+					Com_Printf( "logfile opened on %s\n", asctime( newtime ) );
+
+					if ( com_logfile->integer > 1 ) {
+						// force it to not buffer so we get valid
+						// data even if we are crashing
+						FS_ForceFlush(logfile);
+					}
+				} else {
+					logfile = -1;
+					Com_Printf( "Couldn't open qconsole.log\n");
 				}
 			}
-			if ( logfile && FS_Initialized()) {
+			if ( logfile > 0 && FS_Initialized()) {
 				FS_Write(line, lineLen, logfile);
 			}
 		}
@@ -216,7 +224,7 @@ void QDECL Com_Printf( const char *fmt, ... )
 	Q_vsnprintf (msg,sizeof(msg),fmt,argptr);
 	va_end (argptr);
 
-	Com_Puts_Ext( qfalse, msg );
+	Com_Puts_Ext( qfalse, qfalse, msg );
 }
 
 void QDECL Com_Printf_Ext( qboolean extendedColors, const char *fmt, ... )
@@ -228,7 +236,19 @@ void QDECL Com_Printf_Ext( qboolean extendedColors, const char *fmt, ... )
 	Q_vsnprintf (msg,sizeof(msg),fmt,argptr);
 	va_end (argptr);
 
-	Com_Puts_Ext( extendedColors, msg);
+	Com_Puts_Ext( extendedColors, qfalse, msg);
+}
+
+void QDECL Com_Printf_MV( int flags, const char *fmt, ... )
+{
+	va_list		argptr;
+	char		msg[MAXPRINTMSG];
+
+	va_start (argptr,fmt);
+	Q_vsnprintf (msg,sizeof(msg),fmt,argptr);
+	va_end (argptr);
+
+	Com_Puts_Ext( qfalse, (qboolean)(flags & MVPRINT_SKIPNOTIFY), msg );
 }
 
 
@@ -251,7 +271,7 @@ void QDECL Com_DPrintf( const char *fmt, ...) {
 	Q_vsnprintf (msg,sizeof(msg),fmt,argptr);
 	va_end (argptr);
 
-	Com_Puts_Ext (qfalse, msg);
+	Com_Puts_Ext (qfalse, qfalse, msg);
 }
 
 // Outputs to the VC / Windows Debug window (only in debug compile)
@@ -326,6 +346,7 @@ Q_NORETURN void QDECL Com_Error( errorParm_t code, const char *fmt, ... ) {
 		CL_FlushMemory( qtrue );
 		VM_Forced_Unload_Done();
 		com_errorEntered = qfalse;
+		Com_EndRedirect();
 		longjmp(abortframe, -1);
 		break;
 	case ERR_DROP:
@@ -341,6 +362,7 @@ Q_NORETURN void QDECL Com_Error( errorParm_t code, const char *fmt, ... ) {
 		CL_FlushMemory( qtrue );
 		VM_Forced_Unload_Done();
 		com_errorEntered = qfalse;
+		Com_EndRedirect();
 		longjmp(abortframe, -1);
 	default:
 		VM_Forced_Unload_Start();
@@ -371,7 +393,7 @@ void Com_Quit_f( void ) {
 		CL_Shutdown ();
 		VM_Forced_Unload_Done();
 		Com_Shutdown ();
-		FS_Shutdown(qtrue);
+		FS_Shutdown(qtrue, qfalse);
 	}
 	Sys_Quit ();
 }
@@ -390,7 +412,7 @@ Q_NORETURN void Com_Quit( int signal ) {
 	CL_Shutdown ();
 	VM_Forced_Unload_Done();
 	Com_Shutdown ();
-	FS_Shutdown(qtrue);
+	FS_Shutdown(qtrue, qfalse);
 	Sys_Quit ();
 }
 
@@ -723,12 +745,18 @@ int Com_FilterPath(char *filter, char *name, int casesensitive)
 Com_HashKey
 ============
 */
-int Com_HashKey(char *string, int maxlen) {
+int Com_HashKey(const char *string, int maxlen) {
 	int hash, i;
 
 	hash = 0;
 	for (i = 0; i < maxlen && string[i] != '\0'; i++) {
-		hash += string[i] * (119 + i);
+		char	ch = string[i];
+
+		if (!Q_isascii(ch) || ch == '%') {
+			ch = '.';
+		}
+
+		hash += ch * (119 + i);
 	}
 	hash = (hash ^ (hash >> 10) ^ (hash >> 20));
 	return hash;
@@ -1332,10 +1360,13 @@ const char *CopyString( const char *in ) {
 	return out;
 }
 
+const char *CopyString( const char *in, memtag_t eTag ) {
+	char	*out;
 
-
-
-
+	out = (char *)Z_Malloc(strlen(in) + 1, eTag);
+	strcpy(out, in);
+	return out;
+}
 
 
 /*
@@ -1416,12 +1447,12 @@ void Com_Meminfo_f( void ) {
 //	memblock_t	*block;
 //	int			zoneBytes, zoneBlocks;
 //	int			smallZoneBytes, smallZoneBlocks;
-//	int			botlibBytes, rendererBytes;
+	int			botlibBytes, rendererBytes;
 	int			unused;
 
 //	zoneBytes = 0;
-//	botlibBytes = 0;
-//	rendererBytes = 0;
+	botlibBytes = 0;
+	rendererBytes = 0;
 //	zoneBlocks = 0;
 /*	for (block = mainzone->blocklist.next ; ; block = block->next) {
 		if ( Cmd_Argc() != 1 ) {
@@ -1496,10 +1527,10 @@ void Com_Meminfo_f( void ) {
 	Com_Printf( "%8i unused highwater\n", unused );
 	Com_Printf( "\n" );
 //	Com_Printf( "%8i bytes in %i zone blocks\n", zoneBytes, zoneBlocks	);
-//	Com_Printf( "		%8i bytes in dynamic botlib\n", botlibBytes );
-//	Com_Printf( "		%8i bytes in dynamic renderer\n", rendererBytes );
-//	Com_Printf( "		%8i bytes in dynamic other\n", zoneBytes - ( botlibBytes + rendererBytes ) );
-//	Com_Printf( "		%8i bytes in small Zone memory\n", smallZoneBytes );
+	Com_Printf( "%8i bytes in dynamic botlib\n", botlibBytes );
+	Com_Printf( "%8i bytes in dynamic renderer\n", rendererBytes );
+//	Com_Printf( "%8i bytes in dynamic other\n", zoneBytes - ( botlibBytes + rendererBytes ) );
+//	Com_Printf( "%8i bytes in small Zone memory\n", smallZoneBytes );
 
 	DB_Meminfo();
 }
@@ -1578,7 +1609,7 @@ void Hunk_Log( void) {
 	char		buf[4096];
 	int size, numBlocks;
 
-	if (!logfile || !FS_Initialized())
+	if (logfile <= 0 || !FS_Initialized())
 		return;
 	size = 0;
 	numBlocks = 0;
@@ -1608,7 +1639,7 @@ void Hunk_SmallLog( void) {
 	char		buf[4096];
 	int size, locsize, numBlocks;
 
-	if (!logfile || !FS_Initialized())
+	if (logfile <= 0 || !FS_Initialized())
 		return;
 	for (block = hunkblocks ; block; block = block->next) {
 		block->printed = qfalse;
@@ -2413,7 +2444,7 @@ Com_Init
 void Com_Init( char *commandLine ) {
 	char	*s;
 
-	Com_Printf( "%s %s %s\n", Q3_VERSION, CPUSTRING, __DATE__ );
+	Com_Printf( "%s %s %s\n", Q3_VERSION, PLATFORM_STRING, __DATE__ );
 
 	if (setjmp(abortframe)) {
 		Sys_Error("Error during initialization\n");
@@ -2428,6 +2459,7 @@ void Com_Init( char *commandLine ) {
 	// bk001129 - do this before anything else decides to push events
 	Com_InitPushEvent();
 
+	Com_InitZoneMemory();
 	Cvar_Init ();
 
 	// prepare enough of the subsystems to handle
@@ -2437,7 +2469,6 @@ void Com_Init( char *commandLine ) {
 //	Swap_Init ();
 	Cbuf_Init ();
 
-	Com_InitZoneMemory();
 	Cmd_Init ();
 
 	// override anything from the config files with command line args
@@ -2449,6 +2480,9 @@ void Com_Init( char *commandLine ) {
 	// done early so bind command exists
 	CL_InitKeyCommands();
 
+	// before FS_InitFilesystem() so that ip_socket
+	// fd is lower than 1024 when there is a lot of pk3 files
+	NET_Init();
 	FS_InitFilesystem ();
 
 	Com_InitJournaling();
@@ -2498,7 +2532,6 @@ void Com_Init( char *commandLine ) {
 	com_timescale = Cvar_Get ("timescale", "1", CVAR_CHEAT | CVAR_SYSTEMINFO );
 	com_fixedtime = Cvar_Get ("fixedtime", "0", CVAR_CHEAT);
 	com_showtrace = Cvar_Get ("com_showtrace", "0", CVAR_CHEAT);
-	com_dropsim = Cvar_Get ("com_dropsim", "0", CVAR_CHEAT);
 	com_viewlog = Cvar_Get( "viewlog", "0", CVAR_CHEAT );
 	com_speeds = Cvar_Get ("com_speeds", "0", 0);
 	com_timedemo = Cvar_Get ("timedemo", "0", 0);
@@ -2536,7 +2569,7 @@ void Com_Init( char *commandLine ) {
 	Cmd_SetCommandCompletionFunc( "writeconfig", Cmd_CompleteCfgName );
 	Cmd_AddCommand ("uptime", Com_Uptime_f );
 
-	s = va("%s %s %s", Q3_VERSION, CPUSTRING, __DATE__ );
+	s = va("%s %s %s", Q3_VERSION, PLATFORM_STRING, __DATE__ );
 	com_version = Cvar_Get ("version", s, CVAR_ROM | CVAR_SERVERINFO );
 
 	SP_Init();
@@ -2551,6 +2584,8 @@ void Com_Init( char *commandLine ) {
 	com_dedicated->modified = qfalse;
 	if ( !com_dedicated->integer ) {
 		CL_Init();
+	} else {
+		CON_CreateConsoleWindow();
 	}
 
 	// set com_frameTime so that if a map is started on the
@@ -2878,6 +2913,10 @@ void Com_Frame( void ) {
 		if ( com_speeds->integer ) {
 			timeAfter = Sys_Milliseconds ();
 		}
+	} else {
+		if ( com_speeds->integer ) {
+			timeAfter = timeBeforeEvents = timeBeforeClient = Sys_Milliseconds();
+		}
 	}
 
 	//
@@ -2888,7 +2927,7 @@ void Com_Frame( void ) {
 
 		all = timeAfter - timeBeforeServer;
 		sv = timeBeforeEvents - timeBeforeServer;
-		ev = timeBeforeServer - timeBeforeFirstEvents + timeBeforeClient - timeBeforeEvents;
+		ev = (timeBeforeServer - timeBeforeFirstEvents) + (timeBeforeClient - timeBeforeEvents);
 		cl = timeAfter - timeBeforeClient;
 		sv -= time_game;
 		cl -= time_frontend + time_backend;
@@ -2925,11 +2964,12 @@ void MSG_shutdownHuffman();
 void Com_Shutdown (void)
 {
 	CM_ClearMap();
+	SP_Shutdown ();
 
 	// write config file if anything changed
 	Com_WriteConfiguration();
 
-	if (logfile) {
+	if (logfile > 0) {
 		FS_FCloseFile (logfile);
 		logfile = 0;
 		com_logfile->integer = 0;//don't open up the log file again!!
@@ -2991,8 +3031,8 @@ void MV_SetCurrentGameversion(mvversion_t version) {
 
 	if ( com_fullyInitialized )
 	{ // Only do this if we're fully initialized
-		if ( version == VERSION_UNDEF )	Cvar_Set("version", va("%s %s %s", Q3_VERSION, CPUSTRING, __DATE__ ));
-		else							Cvar_Set("version", va("JK2MP: v1.%02dmv %s %s", version, CPUSTRING, __DATE__)); // Set the version to JK2MP for compatibility reasons
+		if ( version == VERSION_UNDEF )	Cvar_Set("version", va("%s %s %s", Q3_VERSION, PLATFORM_STRING, __DATE__ ));
+		else							Cvar_Set("version", va("JK2MP: v1.%02dmv %s %s", version, PLATFORM_STRING, __DATE__)); // Set the version to JK2MP for compatibility reasons
 	}
 }
 
@@ -3063,6 +3103,100 @@ static void FindMatches( const char *s ) {
 		shortestMatch[i] = 0;
 	}
 }
+
+#ifndef DEDICATED
+/*
+===============
+FullSkinName
+
+Write full skin name ("model/skin") to dst. model string must begin
+with a model name, optionally followed by a '/'. skinName must be a
+name of a skin, optionally followed by "model_" prefix
+
+ ===============
+*/
+static void FullSkinName( char *dst, size_t dstSize, const char *model, const char *skinName ) {
+	char	*skinSep;
+
+	// copy model name to dst
+	Q_strncpyz(dst, model, dstSize);
+
+	if ((skinSep = strchr(dst, '/'))) {
+		*skinSep = '\0';
+	}
+
+	Q_strcat(dst, dstSize, "/");
+
+	// append skin name so it's "model/skin"
+	if (!Q_stricmpn( skinName, "model_", strlen("model_"))) {
+		skinName += strlen("model_");
+	}
+
+	Q_strcat(dst, dstSize, skinName);
+}
+
+/*
+===============
+FindSkinMatches
+
+===============
+*/
+static void FindSkinMatches( const char *s ) {
+	int			i;
+	char		arg[MAX_TOKEN_CHARS];
+
+	FullSkinName(arg, sizeof(arg), completionString, s);
+
+	if ( Q_stricmpn( arg, completionString, (int)strlen( completionString ) ) ) {
+		return;
+	}
+	matchCount++;
+	if ( matchCount == 1 ) {
+		Q_strncpyz( shortestMatch, arg, sizeof( shortestMatch ) );
+		return;
+	}
+
+	// cut shortestMatch to the amount common with s
+	for ( i = 0 ; arg[i] ; i++ ) {
+		if ( tolower(shortestMatch[i]) != tolower(arg[i]) ) {
+			shortestMatch[i] = 0;
+			break;
+		}
+	}
+	if (!arg[i])
+	{
+		shortestMatch[i] = 0;
+	}
+}
+
+/*
+===============
+PrintSkinMatches
+
+===============
+*/
+static void PrintSkinMatches( const char *s ) {
+	char		arg[MAX_TOKEN_CHARS];
+
+	FullSkinName(arg, sizeof(arg), shortestMatch, s);
+
+	if ( !Q_stricmpn( arg, shortestMatch, (int)strlen( shortestMatch ) ) ) {
+		Com_Printf_Ext(qtrue, S_COMPLETION_COLOR "Skin " S_COLOR_WHITE "%s\n", arg );
+	}
+}
+
+/*
+===============
+PrintModelMatches
+
+===============
+*/
+static void PrintModelMatches( const char *s ) {
+	if (!Q_stricmpn(s, shortestMatch, (int)strlen(shortestMatch))) {
+		Com_Printf_Ext(qtrue, S_COMPLETION_COLOR "Model " S_COLOR_WHITE "%s\n", s);
+	}
+}
+#endif // !DEDICATED
 
 /*
 ===============
@@ -3244,6 +3378,41 @@ void Field_CompleteKeyname( void )
 
 	if( !Field_Complete( ) )
 		Key_KeynameCompletion( PrintKeyMatches );
+}
+
+/*
+===============
+Field_CompleteModelName
+===============
+*/
+void Field_CompleteModelname( void )
+{
+	const char *skinSep = strchr(completionString, '/');
+
+	matchCount = 0;
+	shortestMatch[ 0 ] = 0;
+
+	if (!skinSep)
+	{
+		FS_FilenameCompletion( "models/players", "/", qtrue, FindMatches );
+
+		if ( !Field_Complete() )
+			FS_FilenameCompletion( "models/players", "/", qtrue, PrintModelMatches );
+	}
+	else
+	{
+		char	model[MAX_TOKEN_CHARS];
+		char	path[MAX_QPATH];
+		size_t	skinSepOffs = skinSep - completionString;
+
+		Q_strncpyz(model, completionString, MIN(sizeof(model), skinSepOffs + 1));
+		Com_sprintf(path, sizeof(path), "models/players/%s", model);
+
+		FS_FilenameCompletion( path, ".skin", qtrue, FindSkinMatches );
+
+		if ( !Field_Complete() )
+			FS_FilenameCompletion( path, ".skin", qtrue, PrintSkinMatches );
+	}
 }
 #endif
 

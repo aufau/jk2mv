@@ -24,6 +24,10 @@ cvar_t	*sv_killserver;			// menu system can set to 1 to shut server down
 cvar_t	*sv_mapname;
 cvar_t	*sv_mapChecksum;
 cvar_t	*sv_serverid;
+cvar_t	*sv_minSnaps;			// minimum snapshots/sec a client can request, also limited by sv_maxSnaps
+cvar_t	*sv_maxSnaps;			// maximum snapshots/sec a client can request, also limited by sv_fps
+cvar_t	*sv_enforceSnaps;
+cvar_t	*sv_minRate;
 cvar_t	*sv_maxRate;
 cvar_t	*sv_maxOOBRate;
 cvar_t	*sv_minPing;
@@ -37,6 +41,8 @@ cvar_t	*mv_serverversion;
 cvar_t  *sv_hibernateFps;
 cvar_t	*mv_apiConnectionless;
 cvar_t	*sv_pingFix;
+cvar_t	*sv_autoWhitelist;
+cvar_t	*sv_dynamicSnapshots;
 
 // jk2mv's toggleable fixes
 cvar_t	*mv_fixnamecrash;
@@ -48,6 +54,9 @@ cvar_t	*mv_blockchargejump;
 cvar_t	*mv_blockspeedhack;
 cvar_t	*mv_fixsaberstealing;
 cvar_t	*mv_fixplayerghosting;
+
+// jk2mv engine flags
+cvar_t	*mv_resetServerTime;
 
 /*
 =============================================================================
@@ -306,10 +315,10 @@ SVC_BucketForAddress
 Find or allocate a bucket for an address
 ================
 */
-#include <unordered_map>
+#include <map>
 
 static leakyBucket_t *SVC_BucketForAddress(netadr_t address, int burst, int period, int now) {
-	static std::unordered_map<int, leakyBucket_t> bucketMap;
+	static std::map<int, leakyBucket_t> bucketMap;
 	static unsigned int	callCounter = 0;
 
 	if (address.type != NA_IP) {
@@ -550,7 +559,7 @@ void SVC_RemoteCommand( netadr_t from, msg_t *msg ) {
 
 	// start redirecting all print outputs to the packet
 	svs.redirectAddress = from;
-	Com_BeginRedirect (sv_outputbuf, SV_OUTPUTBUF_LENGTH, SV_FlushRedirect);
+	Com_BeginRedirect (sv_outputbuf, SV_OUTPUTBUF_LENGTH, SV_FlushRedirect, qfalse);
 
 	if ( !strlen( sv_rconPassword->string ) ) {
 		Com_Printf ("No rconpassword set.\n");
@@ -627,9 +636,9 @@ qboolean MVAPI_DisableStructConversion(qboolean disable)
 
 #define WHITELIST_FILE			"ipwhitelist.dat"
 
-#include <unordered_set>
+#include <set>
 
-static std::unordered_set<int32_t>	svc_whitelist;
+static std::set<int32_t>	svc_whitelist;
 
 void SVC_LoadWhitelist( void ) {
 	fileHandle_t f;
@@ -1040,6 +1049,54 @@ qboolean SV_CheckPaused( void ) {
 	return qtrue;
 }
 
+void SV_CheckCvars(void) {
+	static int lastModHostname = -1, lastModFramerate = -1, lastModSnapsMin = -1, lastModSnapsMax = -1;
+	static int lastModEnforceSnaps = -1;
+	qboolean changed = qfalse;
+
+	if (sv_hostname->modificationCount != lastModHostname) {
+		char hostname[MAX_INFO_STRING];
+		char *c = hostname;
+		lastModHostname = sv_hostname->modificationCount;
+
+		strcpy(hostname, sv_hostname->string);
+		while (*c)
+		{
+			if ((*c == '\\') || (*c == ';') || (*c == '"'))
+			{
+				*c = '.';
+				changed = qtrue;
+			}
+			c++;
+		}
+		if (changed)
+		{
+			Cvar_Set("sv_hostname", hostname);
+		}
+	}
+
+	// check limits on client "snaps" value based on server framerate and snapshot rate
+	if (sv_fps->modificationCount != lastModFramerate ||
+		sv_minSnaps->modificationCount != lastModSnapsMin ||
+		sv_maxSnaps->modificationCount != lastModSnapsMax ||
+		sv_enforceSnaps->modificationCount != lastModEnforceSnaps)
+	{
+		client_t *cl;
+		int i;
+
+		lastModFramerate = sv_fps->modificationCount;
+		lastModSnapsMin = sv_minSnaps->modificationCount;
+		lastModSnapsMax = sv_maxSnaps->modificationCount;
+		lastModEnforceSnaps = sv_enforceSnaps->modificationCount;
+
+		for (i = 0, cl = svs.clients; i < sv_maxclients->integer; i++, cl++) {
+			if ( cl->state >= CS_CONNECTED ) {
+				SV_ClientUpdateSnaps( cl );
+			}
+		}
+	}
+}
+
 /*
 ==================
 SV_FrameMsec
@@ -1202,6 +1259,8 @@ void SV_Frame( int msec ) {
 
 	// send messages back to the clients
 	SV_SendClientMessages();
+
+	SV_CheckCvars();
 
 	// send a heartbeat to the master if needed
 	SV_MasterHeartbeat();

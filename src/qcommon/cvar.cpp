@@ -237,13 +237,13 @@ cvar_t *Cvar_Get( const char *var_name, const char *var_value, int flags, qboole
 			var->flags &= ~CVAR_USER_CREATED;
 			Z_Free( (void *)var->resetString );
 			var->resetString = CopyString( var_value );
-
-			// ZOID--needs to be set so that cvars the game sets as
-			// SERVERINFO get sent to clients
-			cvar_modifiedFlags |= flags;
 		}
 
 		var->flags |= flags;
+		// ZOID--needs to be set so that cvars the game sets as
+		// SERVERINFO get sent to clients
+		cvar_modifiedFlags |= flags;
+
 		// only allow one non-empty reset string without a warning
 		if ( !var->resetString[0] ) {
 			// we don't have a reset string yet
@@ -300,6 +300,7 @@ cvar_t *Cvar_Get( const char *var_name, const char *var_value, int flags, qboole
 	cvar_vars = var;
 
 	var->flags = flags;
+	cvar_modifiedFlags |= flags;
 
 	hash = generateHashValue(var_name);
 	var->hashNext = hashTable[hash];
@@ -678,21 +679,44 @@ static void Cvar_Print_f(void)
 ============
 Cvar_Toggle_f
 
-Toggles a cvar for easy single key binding
+Toggles a cvar for easy single key binding, optionally through a list of
+given values
 ============
 */
 void Cvar_Toggle_f( void ) {
-	int		v;
+	int         i, c = Cmd_Argc();
+	const char  *curval;
 
-	if ( Cmd_Argc() != 2 ) {
-		Com_Printf ("usage: toggle <variable>\n");
+	if(c < 2) {
+		Com_Printf("usage: toggle <variable> [value1, value2, ...]\n");
 		return;
 	}
 
-	v = Cvar_VariableValue( Cmd_Argv( 1 ) );
-	v = !v;
+	if(c == 2) {
+		Cvar_Set2(Cmd_Argv(1), va("%d",
+			!Cvar_VariableValue(Cmd_Argv(1))),
+			qfalse);
+		return;
+	}
 
-	Cvar_Set2 (Cmd_Argv(1), va("%i", v), qfalse);
+	if(c == 3) {
+		Com_Printf("toggle: nothing to toggle to\n");
+		return;
+	}
+
+	curval = Cvar_VariableString(Cmd_Argv(1));
+
+	// don't bother checking the last arg for a match since the desired
+	// behaviour is the same as no match (set to the first argument)
+	for(i = 2; i + 1 < c; i++) {
+		if(strcmp(curval, Cmd_Argv(i)) == 0) {
+			Cvar_Set2(Cmd_Argv(1), Cmd_Argv(i + 1), qfalse);
+			return;
+		}
+	}
+
+	// fallback
+	Cvar_Set2(Cmd_Argv(1), Cmd_Argv(2), qfalse);
 }
 
 /*
@@ -803,7 +827,7 @@ with the archive flag set to qtrue.
 ============
 */
 
-static int Cvar_CvarCmp(const void *p1, const void *p2) {
+static int QDECL Cvar_CvarCmp(const void *p1, const void *p2) {
     const cvar_t * const *e1 = (const cvar_t * const *)p1;
     const cvar_t * const *e2 = (const cvar_t * const *)p2;
 
@@ -1095,7 +1119,7 @@ void	Cvar_Update( vmCvar_t *vmCvar ) {
 	vmCvar->modificationCount = cv->modificationCount;
 	// bk001129 - mismatches.
 	if ( strlen(cv->string)+1 > MAX_CVAR_VALUE_STRING )
-	  Com_Error( ERR_DROP, "Cvar_Update: src %s length %d exceeds MAX_CVAR_VALUE_STRING",
+	  Com_Printf( "Cvar_Update: src \"%s\" length %d exceeds MAX_CVAR_VALUE_STRING\n",
 		  cv->string,
 		  (int)strlen(cv->string) );
 	// bk001212 - Q_strncpyz guarantees zero padding and dest[MAX_CVAR_VALUE_STRING-1]==0

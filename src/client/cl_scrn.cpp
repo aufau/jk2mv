@@ -402,7 +402,7 @@ void MV_DrawConnectingInfo( void )
 	int		 line = 17;
 	char	 txtbuf[128];
 
-	Com_sprintf(txtbuf, sizeof(txtbuf), "^1[ ^7JK2MV " JK2MV_VERSION " " CPUSTRING " ^1]");
+	Com_sprintf(txtbuf, sizeof(txtbuf), "^1[ ^7JK2MV " JK2MV_VERSION " " PLATFORM_STRING " ^1]");
 	SCR_DrawStringExt(320 - SCR_Strlen(txtbuf) * 4, yPos + (line * 0), 8, txtbuf, g_color_table[7], qfalse);
 
 	Com_sprintf(txtbuf, sizeof(txtbuf), "Game-Version^1: ^71.%02d", (int)MV_GetCurrentGameversion());
@@ -417,7 +417,9 @@ This will be called twice if rendering in stereo mode
 ==================
 */
 void SCR_DrawScreenField( stereoFrame_t stereoFrame ) {
-	re.BeginFrame( stereoFrame );
+	qboolean skipBackend = (qboolean)(com_minimized->integer && !CL_VideoRecording());
+
+	re.BeginFrame( stereoFrame, skipBackend );
 
 	if ( !uivm ) {
 		Com_DPrintf("draw screen without UI loaded\n");
@@ -484,6 +486,8 @@ void SCR_DrawScreenField( stereoFrame_t stereoFrame ) {
 	if ( cl_debuggraph->integer || cl_timegraph->integer || cl_debugMove->integer ) {
 		SCR_DrawDebugGraph ();
 	}
+
+	re.EndFrame();
 }
 
 /*
@@ -506,6 +510,8 @@ void SCR_UpdateScreen( void ) {
 	}
 	recursive = 1;
 
+	CL_UpdateRefConfig( );
+
 	// if running in stereo, we need to draw the frame twice
 	if ( cls.glconfig.stereoEnabled ) {
 		SCR_DrawScreenField( STEREO_LEFT );
@@ -514,10 +520,12 @@ void SCR_UpdateScreen( void ) {
 		SCR_DrawScreenField( STEREO_CENTER );
 	}
 
+	CL_TakeVideoFrame();
+
 	if ( com_speeds->integer ) {
-		re.EndFrame( &time_frontend, &time_backend );
+		re.SwapBuffers( &time_frontend, &time_backend );
 	} else {
-		re.EndFrame( NULL, NULL );
+		re.SwapBuffers( NULL, NULL );
 	}
 
 	recursive = 0;

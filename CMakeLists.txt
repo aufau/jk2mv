@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.1.0)
 
+# Link directly against libGL.so instead of using GLVND
+if (${CMAKE_VERSION} VERSION_GREATER "3.11")
+	cmake_policy(SET CMP0072 OLD)
+endif()
+
 # For checks in subdirectories
 set(InMV TRUE)
 
@@ -43,18 +48,15 @@ option(BuildMVMP "Whether to create targets for the client (jk2mvmp & jk2mvmenu)
 option(BuildMVDED "Whether to create targets for the dedicated server (jk2mvded)" ON)
 option(BuildMVSDK "Whether to build and integrate the mvsdk modules" ON)
 
+set(SystemProcessor "${CMAKE_SYSTEM_PROCESSOR}" CACHE STRING "Option to override CMAKE_SYSTEM_PROCESSOR")
+
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/src/mvsdk/code/ui/CMakeLists.txt")
+	message(FATAL_ERROR "Could not find CMakeLists.txt in \"src/mvsdk/code/ui\". Unable to continue. Make sure you cloned jk2mv including submodules.")
+endif()
+
 if(BuildMVSDK AND NOT EXISTS "${CMAKE_SOURCE_DIR}/src/mvsdk/CMakeLists.txt")
     message(WARNING "Could not find CMakeLists.txt in \"src/mvsdk\". Make sure you cloned jk2mv including submodules. Continuing with BuildMVSDK=OFF.")
     set(BuildMVSDK OFF)
-endif()
-
-if(NOT APPLE AND NOT WIN32)
-	option(BuildPackDEB "Whether to create the DEB package" OFF)
-	option(BuildPackRPM "Whether to create the RPM package" OFF)
-	
-	if ((BuildPackDEB OR BuildPackRPM) AND BuildPortableVersion)
-		message(FATAL_ERROR "Packaging the portable version is not supported.")
-	endif()
 endif()
 
 option(LegacyHTTPDownloads "Activate this for legacy JK2MF http downloads. Bad code due to bad implementation in jk2mf" OFF)
@@ -122,35 +124,47 @@ if(WIN32)
 		set(ARCH_X86_32 ON)
 	endif()
 elseif(APPLE)
-	set(ARCH_X86 ON)
 	set(GlobalDefines ${GlobalDefines} "MACOS_X")
-	if(CMAKE_SYSTEM_PROCESSOR MATCHES "^i.86$")
-		set(GlobalDefines ${GlobalDefines} "ARCH_X86")
-		set(Architecture "i386")
-		set(ARCH_X86_32 ON)
-	elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^x86.64$")
-		set(GlobalDefines ${GlobalDefines} "ARCH_X86_64")
-		set(Architecture "x86_64")
-		set(ARCH_X86_64 ON)
-	endif()
-else()
-	if(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
-		set(GlobalDefines ${GlobalDefines} "ARCH_ARM32")
-		set(Architecture "arm")
-		set(ARCH_ARM32 ON)
-	elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^i.86$")
+	if(SystemProcessor MATCHES "^(arm64|aarch64)$")
+		set(GlobalDefines ${GlobalDefines} "NO_VM_COMPILED")
+		set(GlobalDefines ${GlobalDefines} "ARCH_ARM64")
+		add_definitions(-DPNG_ARM_NEON_OPT=0)
+		set(Architecture "arm64")
+		set(ARCH_ARM64 ON)
+	elseif(SystemProcessor MATCHES "^i.86$")
 		set(GlobalDefines ${GlobalDefines} "ARCH_X86")
 		set(Architecture "i386")
 		set(ARCH_X86 ON)
 		set(ARCH_X86_32 ON)
-	elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^x86.64$")
+	elseif(SystemProcessor MATCHES "^x86.64$")
+		set(GlobalDefines ${GlobalDefines} "ARCH_X86_64")
+		set(Architecture "x86_64")
+		set(ARCH_X86 ON)
+		set(ARCH_X86_64 ON)
+	endif()
+else()
+	if(SystemProcessor MATCHES "^(arm64|aarch64)$")
+		set(GlobalDefines ${GlobalDefines} "NO_VM_COMPILED")
+		set(GlobalDefines ${GlobalDefines} "ARCH_ARM64")
+		set(Architecture "arm64")
+		set(ARCH_ARM64 ON)
+	elseif(SystemProcessor MATCHES "^arm")
+		set(GlobalDefines ${GlobalDefines} "ARCH_ARM32")
+		set(Architecture "arm")
+		set(ARCH_ARM32 ON)
+	elseif(SystemProcessor MATCHES "^i.86$")
+		set(GlobalDefines ${GlobalDefines} "ARCH_X86")
+		set(Architecture "i386")
+		set(ARCH_X86 ON)
+		set(ARCH_X86_32 ON)
+	elseif(SystemProcessor MATCHES "^(x86.64|amd64)$")
 		set(GlobalDefines ${GlobalDefines} "ARCH_X86_64")
 		set(Architecture "amd64")
 		set(ARCH_X86 ON)
 		set(ARCH_X86_64 ON)
 	else()
 		set(GlobalDefines ${GlobalDefines} "NO_VM_COMPILED")
-		set(Architecture "${CMAKE_SYSTEM_PROCESSOR}")
+		set(Architecture "${SystemProcessor}")
 		set(ARCH_UNKNOWN ON)
 	endif()
 endif()
@@ -175,7 +189,7 @@ if(MultiConfigGenerator)
 	set(CPACK_PACKAGE_DIRECTORY ${CMAKE_BINARY_DIR}/out)
 
 	if(APPLE)
-		set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/out/bundle)
+		set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/out)
 	endif()
 else()
 	if(NOT CMAKE_BUILD_TYPE)
@@ -189,7 +203,7 @@ else()
 	set(CPACK_PACKAGE_DIRECTORY ${CMAKE_BINARY_DIR}/out)
 
 	if(APPLE)
-		set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/out/bundle/${CMAKE_BUILD_TYPE})
+		set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/out/${CMAKE_BUILD_TYPE})
 	endif()
 endif()
 
@@ -207,8 +221,8 @@ if(MSVC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244 /wd4996 /wd4267")
 	
 	# Multithreaded
-	set(CMAKE_CXX_FLAGS_RELEASE "/MT" CACHE TYPE INTERNAL FORCE)
-	set(CMAKE_C_FLAGS_RELEASE "/MT" CACHE TYPE INTERNAL FORCE)
+	set(CMAKE_CXX_FLAGS_RELEASE "/MT")
+	set(CMAKE_C_FLAGS_RELEASE "/MT")
 
 	# Platform
 	set(GlobalDefines ${GlobalDefines} "UNICODE" "_UNICODE")
@@ -216,14 +230,16 @@ if(MSVC)
 	# Optimization
 	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MP") # multiprocessor compilation
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MP")
-	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O2 /Oi /Ot /Ob2 /fp:fast") # maximize speed
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /Oi /Ot /Ob2 /fp:fast")
+	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O2 /Oi /Ot /Ob2") # maximize speed
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /Oi /Ot /Ob2")
 
 	if(ARCH_X86_32)
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /arch:SSE2")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:SSE2")
 
-		set(CMAKE_ASM_MASM_FLAGS "${CMAKE_ASM_MASM_FLAGS} /safeseh") # safe exception handler
+		# dont use safe exception handler
+		# openal does not support it on X86_32
+		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /safeseh:no")
 	endif()
 
 	# Set the same options for the build including symbols
@@ -248,8 +264,8 @@ elseif ((${CMAKE_C_COMPILER_ID} STREQUAL GNU) OR (${CMAKE_C_COMPILER_ID} MATCHES
 	endif()
 
 	# Optimization
-	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -ffast-math")
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math")
+	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 
 	# General
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g1 -fno-omit-frame-pointer")
@@ -257,7 +273,8 @@ elseif ((${CMAKE_C_COMPILER_ID} STREQUAL GNU) OR (${CMAKE_C_COMPILER_ID} MATCHES
 
 	# Warnings
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wsign-compare -Wno-unknown-pragmas")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-unknown-pragmas -Wno-write-strings")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-write-strings")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas -Wno-attributes")
 
 	if(${CMAKE_C_COMPILER_ID} STREQUAL GNU)
 		if(ARCH_X86)
@@ -357,30 +374,32 @@ if(WIN32)
 		)
 		string(REGEX REPLACE "/" "\\\\\\\\" CPACK_NSIS_INCLFILE "${CMAKE_BINARY_DIR}/res/NSIS.definitions.nsh")
 	endif()
-	
-	include(CPack)
 elseif(APPLE)
 	set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-macosx-${Architecture}")
 
-	set(CPACK_GENERATOR "DragNDrop")
-	set(CPACK_DMG_FORMAT "UDBZ")
+	if(BuildPortableVersion)
+		set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-portable")
 
-	include(CPack)
+		set(CPACK_GENERATOR "TGZ")
+	else()
+		set(CPACK_GENERATOR "DragNDrop")
+		set(CPACK_DMG_FORMAT "UDBZ")
+	endif()
 else()
 	set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-linux-${Architecture}")
 
-	# DEB
-	if(BuildPackDEB)
+	if(BuildPortableVersion)
+		set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-portable")
+
+		set(CPACK_GENERATOR "TGZ")
+	else()
 		set(CPACK_GENERATOR ${CPACK_GENERATOR} "DEB")
 		set(CPACK_DEBIAN_PACKAGE_NAME "jk2mv") # debian packages are lowercase
 		set(CPACK_DEBIAN_PACKAGE_SECTION "games")
 		set(CPACK_DEBIAN_PACKAGE_HOMEPAGE ${ProjectURL})
 		set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE ${Architecture})
 		set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-	endif()
 
-	# RPM
-	if(BuildPackRPM)
 		set(CPACK_GENERATOR ${CPACK_GENERATOR} "RPM")
 		set(CPACK_RPM_PACKAGE_NAME "jk2mv")
 		set(CPACK_RPM_PACKAGE_DESCRIPTION "JK2MV (Multi Version) is a modification for Jedi Knight II: Jedi Outcast. It supports all three game versions and comes with various features and optimizations.")
@@ -394,7 +413,7 @@ else()
 			/usr/share/icons/hicolor/256x256 /usr/share/icons/hicolor/256x256/apps
 			/usr/share/icons/hicolor/48x48 /usr/share/icons/hicolor/48x48/apps
 		)
-		
+
 		set(CPACK_RPM_PACKAGE_REQUIRES "glibc, libgcc, libstdc++, SDL2, openal-soft")
 		if(NOT UseInternalZLIB)
 			set(CPACK_RPM_PACKAGE_REQUIRES "${CPACK_RPM_PACKAGE_REQUIRES}, zlib")
@@ -412,11 +431,8 @@ else()
 			set(CPACK_RPM_PACKAGE_REQUIRES "${CPACK_RPM_PACKAGE_REQUIRES}, sqlite3")
 		endif()
 	endif()
-	
-	if(BuildPackDEB OR BuildPackRPM)
-		include(CPack)
-	endif()
 endif()
+include(CPack)
 
 add_subdirectory(assets)
 add_subdirectory(src)

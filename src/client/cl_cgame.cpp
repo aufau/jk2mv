@@ -363,6 +363,8 @@ void CL_ConfigstringModified( void ) {
 		return;		// unchanged
 	}
 
+	if ( index == CS_SERVERINFO ) clc.udpdl = atoi( Info_ValueForKey(s, "sv_allowDownload") );
+
 	// build the new gameState_t
 	oldGs = cl.gameState;
 
@@ -575,6 +577,11 @@ void CL_CM_LoadMap( const char *mapname ) {
 	int		checksum;
 
 	CM_LoadMap( mapname, qtrue, &checksum );
+
+	// If the cgame module didn't announce it can handle it we want to abort now
+	if ( CM_NumInlineModels() > MAX_SUBMODELS && !cls.submodelBypass ) {
+		Com_Error( ERR_DROP, "MAX_SUBMODELS exceeded\n\nYour CGame module doesn't support\nthe submodel bypass." );
+	}
 }
 
 /*
@@ -593,6 +600,7 @@ void CL_ShutdownCGame( void ) {
 	VM_Free( cgvm );
 	cgvm = NULL;
 	cls.fixes = MVFIX_NONE;
+	cls.submodelBypass = qfalse;
 #ifdef _DONETPROFILE_
 	ClReadProf().ShowTotals();
 #endif
@@ -632,6 +640,16 @@ CL_CgameSetVirtualScreen
 void CL_CgameSetVirtualScreen(float w, float h) {
 	cls.cgxadj = SCREEN_WIDTH / w;
 	cls.cgyadj = SCREEN_HEIGHT / h;
+}
+
+/*
+====================
+CL_CgameEnableSubmodelBypass
+====================
+*/
+qboolean CL_CgameEnableSubmodelBypass( qboolean enable ) {
+	cls.submodelBypass = enable;
+	return cls.submodelBypass;
 }
 
 /*
@@ -692,7 +710,7 @@ intptr_t CL_CgameSystemCalls(intptr_t *args) {
 		FS_Read2( VMAP(1, char, args[2]), args[2], args[3], MODULE_CGAME );
 		return 0;
 	case CG_FS_WRITE:
-		FS_Write( VMAP(1, const char, args[2]), args[2], args[3] );
+		FS_Write( VMAP(1, const char, args[2]), args[2], args[3], MODULE_CGAME );
 		return 0;
 	case CG_FS_FCLOSEFILE:
 		FS_FCloseFile( args[1], MODULE_CGAME );
@@ -1293,6 +1311,16 @@ Ghoul2 Insert End
 			return (int)FS_FLock(args[1], (flockCmd_t)args[2], (qboolean)!!args[3], MODULE_CGAME);
 		case MVAPI_SET_VERSION:
 			VM_SetGameversion( cgvm, (mvversion_t)args[1] );
+			return 0;
+		}
+	}
+
+	if (VM_MVAPILevel(cgvm) >= 4) {
+		switch (args[0]) {
+		case CG_MVAPI_ENABLE_SUBMODELBYPASS:
+			return CL_CgameEnableSubmodelBypass( (qboolean)!!args[1] );
+		case MVAPI_PRINT:
+			Com_Printf_MV( args[1], "%s", VMAS(2) );
 			return 0;
 		}
 	}

@@ -190,6 +190,7 @@ cvar_t *r_fontSharpness;
 cvar_t *r_textureLODBias;
 cvar_t *r_saberGlow;
 cvar_t *r_environmentMapping;
+cvar_t *r_printMissingModels;
 
 #ifndef DEDICATED
 PFNGLACTIVETEXTUREARBPROC qglActiveTextureARB;
@@ -715,89 +716,6 @@ void GL_CheckErrors( void ) {
 #ifndef DEDICATED
 
 /*
-===============
-RB_ReadPixels
-===============
-*/
-byte *RB_ReadPixels(int x, int y, int width, int height, size_t *offset, qboolean swapRB, int packAlign)
-{
-	byte	*buffer, *bufstart;
-	int		padwidth, linelen;
-
-	qglPixelStorei(GL_PACK_ALIGNMENT, packAlign);
-
-	linelen = width * 3;
-	padwidth = PAD(linelen, packAlign);
-
-	// Allocate a few more bytes so that we can choose an alignment we like
-	buffer = (byte *)ri.Hunk_AllocateTempMemory(padwidth * height + *offset + packAlign - 1);
-	bufstart = (byte *)PADP((intptr_t)buffer + *offset, packAlign);
-
-	qglReadPixels(x, y, width, height, swapRB ? GL_BGR : GL_RGB, GL_UNSIGNED_BYTE, bufstart);
-
-	// gamma correct
-	if (r_gammamethod->integer == GAMMA_HARDWARE)
-		R_GammaCorrect(bufstart, padwidth * height);
-
-	*offset = bufstart - buffer;
-
-	return buffer;
-}
-
-/*
-==================
-R_TakeScreenshot
-==================
-*/
-static void R_TakeScreenshot(int x, int y, int width, int height, const char *fileName, qboolean jpeg) {
-	screenshotCommand_t	*cmd;
-
-	cmd = (screenshotCommand_t *)R_GetCommandBuffer( sizeof( *cmd ) );
-	if ( !cmd ) {
-		return;
-	}
-	cmd->commandId = RC_SCREENSHOT;
-
-	cmd->x = x;
-	cmd->y = y;
-	cmd->width = width;
-	cmd->height = height;
-	Q_strncpyz( cmd->fileName, fileName, sizeof( cmd->fileName ) );
-	cmd->jpeg = jpeg;
-}
-
-void RB_TakeScreenshot(int x, int y, int width, int height, const char *fileName) {
-	byte	*allbuf, *buffer;
-	size_t	offset = 18;
-
-	// tga does not use line padding
-	allbuf = RB_ReadPixels(x, y, width, height, &offset, qtrue, 1);
-	buffer = allbuf + offset - 18;
-
-	Com_Memset(buffer, 0, 18);
-	buffer[2] = 2;		// uncompressed type
-	buffer[12] = width & 255;
-	buffer[13] = width >> 8;
-	buffer[14] = height & 255;
-	buffer[15] = height >> 8;
-	buffer[16] = 24;	// pixel size
-
-	ri.FS_WriteFile(fileName, buffer, 18 + width * 3 * height);
-
-	ri.Hunk_FreeTempMemory(allbuf);
-}
-
-void RB_TakeScreenshotJPEG(int x, int y, int width, int height, const char *fileName) {
-	byte	*buffer;
-	size_t	offset = 0;
-
-	buffer = RB_ReadPixels(x, y, width, height, &offset, qfalse, 1);
-
-	SaveJPG(fileName, r_screenshotJpegQuality->integer, width, height, buffer + offset, 0);
-	ri.Hunk_FreeTempMemory(buffer);
-}
-
-/*
 ==================
 R_ScreenshotFilename
 ==================
@@ -830,64 +748,10 @@ levelshots are specialized 256*256 thumbnails for
 the menu system, sampled down from full screen distorted images
 ====================
 */
-#define LEVELSHOTSIZE 256
 static void R_LevelShot( void ) {
-	char		checkname[MAX_OSPATH];
-	byte		*buffer;
-	byte		*source;
-	byte		*src, *dst;
-	int			x, y;
-	int			r, g, b;
-	float		xScale, yScale;
-	int			xx, yy;
 
-	sprintf( checkname, "levelshots/%s.tga", tr.world->baseName );
-
-	source = (unsigned char *)ri.Hunk_AllocateTempMemory( glConfig.vidWidth * glConfig.vidHeight * 3 );
-
-	buffer = (unsigned char *)ri.Hunk_AllocateTempMemory( LEVELSHOTSIZE * LEVELSHOTSIZE*3 + 18);
-	Com_Memset (buffer, 0, 18);
-	buffer[2] = 2;		// uncompressed type
-	buffer[12] = LEVELSHOTSIZE & 255;
-	buffer[13] = LEVELSHOTSIZE >> 8;
-	buffer[14] = LEVELSHOTSIZE & 255;
-	buffer[15] = LEVELSHOTSIZE >> 8;
-	buffer[16] = 24;	// pixel size
-
-	qglReadPixels( 0, 0, glConfig.vidWidth, glConfig.vidHeight, GL_RGB, GL_UNSIGNED_BYTE, source );
-
-	// resample from source
-	xScale = glConfig.vidWidth / (4.0*LEVELSHOTSIZE);
-	yScale = glConfig.vidHeight / (3.0*LEVELSHOTSIZE);
-	for ( y = 0 ; y < LEVELSHOTSIZE ; y++ ) {
-		for ( x = 0 ; x < LEVELSHOTSIZE ; x++ ) {
-			r = g = b = 0;
-			for ( yy = 0 ; yy < 3 ; yy++ ) {
-				for ( xx = 0 ; xx < 4 ; xx++ ) {
-					src = source + 3 * ( glConfig.vidWidth * (int)( (y*3+yy)*yScale ) + (int)( (x*4+xx)*xScale ) );
-					r += src[0];
-					g += src[1];
-					b += src[2];
-				}
-			}
-			dst = buffer + 18 + 3 * ( y * LEVELSHOTSIZE + x );
-			dst[0] = b / 12;
-			dst[1] = g / 12;
-			dst[2] = r / 12;
-		}
-	}
-
-	// gamma correct
-	if ( ( tr.overbrightBits > 0 ) && r_gammamethod->integer == GAMMA_HARDWARE) {
-		R_GammaCorrect( buffer + 18, LEVELSHOTSIZE * LEVELSHOTSIZE * 3 );
-	}
-
-	ri.FS_WriteFile( checkname, buffer, LEVELSHOTSIZE * LEVELSHOTSIZE*3 + 18 );
-
-	ri.Hunk_FreeTempMemory( buffer );
-	ri.Hunk_FreeTempMemory( source );
-
-	ri.Printf( PRINT_ALL, "Wrote %s\n", checkname );
+	Com_sprintf(tr.levelshotName, sizeof(tr.levelshotName), "levelshots/%s.tga", tr.world->baseName);
+	tr.levelshot = qtrue;
 }
 
 /*
@@ -948,12 +812,9 @@ void R_ScreenShotTGA_f (void) {
 		lastNumber++;
 	}
 
-
-	R_TakeScreenshot( 0, 0, glConfig.vidWidth, glConfig.vidHeight, checkname, qfalse );
-
-	if ( !silent ) {
-		ri.Printf (PRINT_ALL, "Wrote %s\n", checkname);
-	}
+	Q_strncpyz(tr.screenshotTGAName, checkname, sizeof(tr.screenshotTGAName));
+	tr.screenshotTGA = qtrue;
+	tr.screenshotTGASilent = silent;
 }
 
 //jpeg  vession
@@ -1002,12 +863,10 @@ void R_ScreenShot_f (void) {
 		lastNumber++;
 	}
 
-
-	R_TakeScreenshot( 0, 0, glConfig.vidWidth, glConfig.vidHeight, checkname, qtrue );
-
-	if ( !silent ) {
-		ri.Printf (PRINT_ALL, "Wrote %s\n", checkname);
-	}
+	Q_strncpyz(tr.screenshotJPEGName, checkname, sizeof(tr.screenshotJPEGName));
+	tr.screenshotJPEG = qtrue;
+	tr.screenshotJPEGQuality = r_screenshotJpegQuality->integer;
+	tr.screenshotJPEGSilent = silent;
 }
 
 //============================================================================
@@ -1095,7 +954,8 @@ void GfxInfo_f( void )
 	ri.Printf( PRINT_ALL, "GL_MAX_TEXTURE_SIZE: %d\n", glConfig.maxTextureSize );
 	ri.Printf( PRINT_ALL, "GL_MAX_ACTIVE_TEXTURES_ARB: %d\n", glConfig.maxActiveTextures );
 	ri.Printf( PRINT_ALL, "\nPIXELFORMAT: color(%d-bits) Z(%d-bit) stencil(%d-bits)\n", glConfig.colorBits, glConfig.depthBits, glConfig.stencilBits );
-	ri.Printf( PRINT_ALL, "MODE: %d, %d x %d %s hz:", r_mode->integer, glConfig.vidWidth, glConfig.vidHeight, fsstrings[r_fullscreen->integer == 1] );
+	ri.Printf( PRINT_ALL, "MODE: %d, %d x %d %s hz:", r_mode->integer, glConfig.winWidth, glConfig.winHeight, fsstrings[r_fullscreen->integer == 1] );
+
 	if ( glConfig.displayFrequency )
 	{
 		ri.Printf( PRINT_ALL, "%d\n", glConfig.displayFrequency );
@@ -1105,7 +965,8 @@ void GfxInfo_f( void )
 		ri.Printf( PRINT_ALL, "N/A\n" );
 	}
 
-	ri.Printf(PRINT_ALL, "Display DPI: %f\n", glConfig.displayDPI);
+	ri.Printf( PRINT_ALL, "renderer size: %d x %d\n", glConfig.vidWidth, glConfig.vidHeight );
+	ri.Printf( PRINT_ALL, "display scale: %d%%\n", (int)roundf(glConfig.displayScale * 100.0f));
 
 	// gamma correction
 	if (r_gammamethod->integer == GAMMA_POSTPROCESSING) {
@@ -1304,7 +1165,7 @@ void R_Register( void )
 	r_showtris = ri.Cvar_Get ("r_showtris", "0", CVAR_CHEAT);
 	r_showsky = ri.Cvar_Get ("r_showsky", "0", CVAR_CHEAT);
 	r_shownormals = ri.Cvar_Get ("r_shownormals", "0", CVAR_CHEAT);
-	r_clear = ri.Cvar_Get ("r_clear", "0", CVAR_CHEAT);
+	r_clear = ri.Cvar_Get ("r_clear", "0", 0);
 	r_offsetFactor = ri.Cvar_Get( "r_offsetfactor", "-1", CVAR_CHEAT );
 	r_offsetUnits = ri.Cvar_Get( "r_offsetunits", "-2", CVAR_CHEAT );
 	r_drawBuffer = ri.Cvar_Get( "r_drawBuffer", "GL_BACK", CVAR_CHEAT );
@@ -1353,6 +1214,7 @@ Ghoul2 Insert End
 	r_textureLODBias = ri.Cvar_Get("r_textureLODBias", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	r_saberGlow = ri.Cvar_Get("r_saberGlow", "1", CVAR_ARCHIVE | CVAR_LATCH);
 	r_environmentMapping = ri.Cvar_Get("r_environmentMapping", "1", CVAR_ARCHIVE | CVAR_GLOBAL);
+	r_printMissingModels = ri.Cvar_Get("r_printMissingModels", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 }
 
 #ifdef G2_COLLISION_ENABLED
@@ -1590,6 +1452,22 @@ void RE_SetLightStyle(int style, int color)
 	memcpy(styleColors[style], &color, 4);
 }
 
+void RE_UpdateGLConfig( glconfig_t *glconfigOut ) {
+	int		oldWidth = glConfig.vidWidth;
+	int		oldHeight = glConfig.vidHeight;
+
+	WIN_UpdateGLConfig( &glConfig );
+
+	if (oldWidth != glConfig.vidWidth || oldHeight != glConfig.vidHeight) {
+		R_SyncRenderThread();
+		R_UpdateImages();
+	}
+
+	glconfigOut->vidWidth = glConfig.vidWidth;
+	glconfigOut->vidHeight = glConfig.vidHeight;
+	glconfigOut->displayScale = glConfig.displayScale;
+}
+
 #endif //!DEDICATED
 /*
 @@@@@@@@@@@@@@@@@@@@@
@@ -1623,8 +1501,10 @@ refexport_t *GetRefAPI ( int apiVersion, refimport_t *rimp ) {
 	re.SetWorldVisData = RE_SetWorldVisData;
 	re.EndRegistration = RE_EndRegistration;
 
+	re.UpdateGLConfig = RE_UpdateGLConfig;
 	re.BeginFrame = RE_BeginFrame;
 	re.EndFrame = RE_EndFrame;
+	re.SwapBuffers = RE_SwapBuffers;
 
 	re.MarkFragments = R_MarkFragments;
 	re.LerpTag = R_LerpTag;
@@ -1665,7 +1545,8 @@ refexport_t *GetRefAPI ( int apiVersion, refimport_t *rimp ) {
 
 	re.GetBModelVerts = RE_GetBModelVerts;
 
-	re.TakeVideoFrame = RE_TakeVideoFrame;
+	re.CaptureFrameRaw = RE_CaptureFrameRaw;
+	re.CaptureFrameJPEG = RE_CaptureFrameJPEG;
 #endif //!DEDICATED
 	return &re;
 }

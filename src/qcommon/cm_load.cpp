@@ -115,9 +115,8 @@ void CMod_LoadSubmodels( lump_t *l ) {
 	cm.cmodels = (struct cmodel_s *)Hunk_Alloc( count * sizeof( *cm.cmodels ), h_high );
 	cm.numSubModels = count;
 
-	if ( count > MAX_SUBMODELS ) {
-		Com_Error( ERR_DROP, "MAX_SUBMODELS exceeded" );
-	}
+	cm.capsuleModelHandle = MAX(254, count); // At least 254 (CAPSULE_MODEL_HANDLE) in case some legacy cgame module violates the api
+	cm.boxModelHandle = MAX(255, count + 1); // At least 255 (BOX_MODEL_HANDLE) in case some legacy cgame module violates the api
 
 	for ( i=0 ; i<count ; i++, in++, out++)
 	{
@@ -283,6 +282,10 @@ void CMod_LoadLeafs (lump_t *l)
 
 	cm.areas = (cArea_t *)Hunk_Alloc( cm.numAreas * sizeof( *cm.areas ), h_high );
 	cm.areaPortals = (int *)Hunk_Alloc( cm.numAreas * cm.numAreas * sizeof( *cm.areaPortals ), h_high );
+
+	if (cm.numAreas > MAX_MAP_AREA_BYTES * 8) {
+		Com_DPrintf(S_COLOR_YELLOW "WARNING: Map has %d areaportal areas but only up to %d are supported\n", cm.numAreas, MAX_MAP_AREA_BYTES * 8);
+	}
 }
 
 /*
@@ -423,7 +426,25 @@ void CMod_LoadBrushSides (lump_t *l)
 CMod_LoadEntityString
 =================
 */
-void CMod_LoadEntityString( lump_t *l ) {
+void CMod_LoadEntityString( lump_t *l, const char *name ) {
+	char			entName[MAX_QPATH];
+	fileHandle_t	entHandle;
+	int				entLen;
+
+	COM_StripExtension(name, entName, sizeof(entName));
+	COM_DefaultExtension(entName, sizeof(entName), ".ent");
+	entLen = FS_FOpenFileRead(entName, &entHandle, qfalse);
+
+	if (entHandle) {
+		cm.entityString = (char *)Hunk_Alloc(entLen + 1, h_high);
+		cm.numEntityChars = entLen + 1;
+		FS_Read(cm.entityString, entLen, entHandle);
+		FS_FCloseFile(entHandle);
+		cm.entityString[entLen] = '\0';
+		Com_Printf("Loaded entities from %s\n", entName);
+		return;
+	}
+
 	cm.entityString = (char *)Hunk_Alloc( l->filelen, h_high );
 	cm.numEntityChars = l->filelen;
 	Com_Memcpy (cm.entityString, cmod_base + l->fileofs, l->filelen);
@@ -684,7 +705,7 @@ static void CM_LoadMap_Actual( const char *name, qboolean clientload, int *check
 	CMod_LoadBrushes (&header.lumps[LUMP_BRUSHES]);
 	CMod_LoadSubmodels (&header.lumps[LUMP_MODELS]);
 	CMod_LoadNodes (&header.lumps[LUMP_NODES]);
-	CMod_LoadEntityString (&header.lumps[LUMP_ENTITIES]);
+	CMod_LoadEntityString (&header.lumps[LUMP_ENTITIES], name);
 	CMod_LoadVisibility( &header.lumps[LUMP_VISIBILITY] );
 	CMod_LoadPatches( &header.lumps[LUMP_SURFACES], &header.lumps[LUMP_DRAWVERTS] );
 
@@ -735,7 +756,7 @@ cmodel_t	*CM_ClipHandleToModel( clipHandle_t handle ) {
 	if ( handle < cm.numSubModels ) {
 		return &cm.cmodels[handle];
 	}
-	if ( handle == BOX_MODEL_HANDLE ) {
+	if ( handle == cm.boxModelHandle ) {
 		return &box_model;
 	}
 	if ( handle < MAX_SUBMODELS ) {
@@ -857,7 +878,7 @@ clipHandle_t CM_TempBoxModel( const vec3_t mins, const vec3_t maxs, qboolean cap
 	VectorCopy( maxs, box_model.maxs );
 
 	if ( capsule ) {
-		return CAPSULE_MODEL_HANDLE;
+		return cm.capsuleModelHandle;
 	}
 
 	box_planes[0].dist = maxs[0];
@@ -876,7 +897,7 @@ clipHandle_t CM_TempBoxModel( const vec3_t mins, const vec3_t maxs, qboolean cap
 	VectorCopy( mins, box_brush->bounds[0] );
 	VectorCopy( maxs, box_brush->bounds[1] );
 
-	return BOX_MODEL_HANDLE;
+	return cm.boxModelHandle;
 }
 
 /*

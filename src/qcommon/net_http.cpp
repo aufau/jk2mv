@@ -191,7 +191,7 @@ static struct clientDL_t {
 } cldls[MAX_PARALLEL_DOWNLOADS];
 
 static void NET_HTTP_DownloadProcessEvent() {
-	std::lock_guard<std::mutex> lk(m_cldls);
+	m_cldls.lock();
 
 	for (size_t i = 0; i < ARRAY_LEN(cldls); i++) {
 		clientDL_t *cldl = &cldls[i];
@@ -203,12 +203,16 @@ static void NET_HTTP_DownloadProcessEvent() {
 				}
 			} else {
 				// download ended
-
 				NET_HTTP_StopDownload((dlHandle_t)i);
+
+				m_cldls.unlock();
 				cldl->ended_callback((dlHandle_t)i, (qboolean)(!cldl->error), cldl->err_msg);
+				m_cldls.lock();
 			}
 		}
 	}
+
+	m_cldls.unlock();
 }
 
 static void NET_HTTP_DownloadRecvData(struct mbuf *io, struct mg_connection *nc, std::unique_lock<std::mutex> *lock) {
@@ -310,7 +314,7 @@ NET_HTTP_StartDownload
 ====================
 */
 dlHandle_t NET_HTTP_StartDownload(const char *url, const char *toPath, dl_ended_callback ended_callback, dl_status_callback status_callback, const char *userAgent, const char *referer) {
-	std::lock_guard<std::mutex> lk(m_cldls);
+	m_cldls.lock(); // Manually handle lock, because we don't return from Com_Error
 
 	// search for free dl slot
 	clientDL_t *cldl = NULL;
@@ -324,11 +328,13 @@ dlHandle_t NET_HTTP_StartDownload(const char *url, const char *toPath, dl_ended_
 	}
 
 	if (!cldl) {
+		m_cldls.unlock();
 		return -1;
 	}
 
 	cldl->file = fopen(toPath, "wb");
 	if (!cldl->file) {
+		m_cldls.unlock();
 		Com_Error(ERR_DROP, "could not open file %s for writing.", toPath);
 		return -1;
 	}
@@ -349,6 +355,7 @@ dlHandle_t NET_HTTP_StartDownload(const char *url, const char *toPath, dl_ended_
 	cldl->end_poll_loop = false;
 	cldl->thread = std::thread(NET_HTTP_DownloadPollLoop, cldl);
 
+	m_cldls.unlock();
 	return cldl - cldls;
 }
 

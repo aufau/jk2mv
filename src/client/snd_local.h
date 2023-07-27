@@ -185,7 +185,7 @@ typedef struct {
 */
 
 // initializes cycling through a DMA buffer and returns information on it
-qboolean SNDDMA_Init(void);
+qboolean SNDDMA_Init(int khz);
 
 // gets the current DMA position
 int		SNDDMA_GetDMAPos(void);
@@ -196,6 +196,9 @@ void	SNDDMA_Shutdown(void);
 void	SNDDMA_BeginPainting (void);
 
 void	SNDDMA_Submit(void);
+
+void	SNDDMA_Activate(qboolean activate);
+
 
 //====================================================================
 

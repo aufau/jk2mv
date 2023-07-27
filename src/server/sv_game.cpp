@@ -325,14 +325,26 @@ static void SV_MVAPI_DB_Bind(mvstmtHandle_t h, int pos, mvdbType_t type, intptr_
 	void	*value;
 
 	if (type == MVDB_TEXT) {
-		value = VM_ArgString(G_MVAPI_DB_BIND, valuePtr);
+		value = VM_ArgString(MVAPI_DB_BIND, valuePtr);
 	} else if (type == MVDB_BLOB) {
-		value = VM_ArgPtr(G_MVAPI_DB_BIND, valuePtr, size);
+		value = VM_ArgPtr(MVAPI_DB_BIND, valuePtr, size);
 	} else {
-		value = VM_ArgPtr(G_MVAPI_DB_BIND, valuePtr, sizeof(mvdbValue_t));
+		value = VM_ArgPtr(MVAPI_DB_BIND, valuePtr, sizeof(mvdbValue_t));
 	}
 
 	DB_Bind(h, pos, type, (const mvdbValue_t *)value, size);
+}
+
+/*
+====================
+SV_MVAPI_ResetServerTime
+
+Reset server time on map change
+====================
+*/
+static qboolean SV_MVAPI_ResetServerTime(qboolean enable) {
+	sv.resetServerTime = enable ? 1 : 2;
+	return qfalse;
 }
 
 /*
@@ -487,6 +499,12 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 		SV_GetUsercmd( args[1], VMAV(2, usercmd_t) );
 		return 0;
 	case G_GET_ENTITY_TOKEN:
+		// If the game module didn't announce it can handle more submodels than the default 256, but tries to load
+		// entities we want to abort now
+		if ( CM_NumInlineModels() > MAX_SUBMODELS && !sv.submodelBypass ) {
+			Com_Error( ERR_DROP, "MAX_SUBMODELS exceeded (game module doesn't support submodel bypass)" );
+		}
+		else
 		{
 			const char	*s;
 
@@ -1098,19 +1116,27 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 
 	if (VM_MVAPILevel(gvm) >= 4) {
 		switch(args[0]) {
-		case G_MVAPI_DB_PREPARE:
+		case G_MVAPI_RESET_SERVER_TIME:
+			return (int)SV_MVAPI_ResetServerTime((qboolean)!!args[1]);
+		case G_MVAPI_ENABLE_PLAYERSNAPSHOTS:
+			return (int)SV_MVAPI_EnablePlayerSnapshots((qboolean)!!args[1]);
+		case G_MVAPI_ENABLE_SUBMODELBYPASS:
+			return SV_MVAPI_EnableSubmodelBypass( (qboolean)!!args[1] );
+		case MVAPI_PRINT:
+			Com_Printf_MV( args[1], "%s", VMAS(2) );
+		case MVAPI_DB_PREPARE:
 			return DB_Prepare(VMAS(1));
-		case G_MVAPI_DB_STEP:
+		case MVAPI_DB_STEP:
 			return DB_Step(args[1]);
-		case G_MVAPI_DB_COLUMN:
+		case MVAPI_DB_COLUMN:
 			return DB_Column(args[1], (mvdbValue_t *)VMAP(2, char, args[3]), args[3], (mvdbType_t)args[4], args[5]);
-		case G_MVAPI_DB_BIND:
+		case MVAPI_DB_BIND:
 			SV_MVAPI_DB_Bind(args[1], args[2], (mvdbType_t)args[3], args[4], args[5]);
 			return 0;
-		case G_MVAPI_DB_RESET:
+		case MVAPI_DB_RESET:
 			DB_Reset(args[1]);
 			return 0;
-		case G_MVAPI_DB_FINALIZE:
+		case MVAPI_DB_FINALIZE:
 			DB_Finalize(args[1]);
 			return 0;
 		}
@@ -1135,6 +1161,8 @@ void SV_ShutdownGameProgs( void ) {
 	VM_Free( gvm );
 	gvm = NULL;
 	sv.fixes = MVFIX_NONE;
+	sv.vmPlayerSnapshots = qfalse;
+	sv.submodelBypass = qfalse;
 }
 
 /*
@@ -1281,4 +1309,26 @@ qboolean SV_MVAPI_ControlFixes(int fixes) {
 	sv.fixes = fixes & mask;
 
 	return qfalse;
+}
+
+/*
+====================
+SV_MVAPI_EnablePlayerSnapshots
+
+enable / disable whether to call the gvm before generating each snapshot
+====================
+*/
+qboolean SV_MVAPI_EnablePlayerSnapshots(qboolean enable) {
+	sv.vmPlayerSnapshots = enable;
+	return qfalse;
+}
+
+/*
+====================
+SV_MVAPI_EnableSubmodelBypass
+====================
+*/
+qboolean SV_MVAPI_EnableSubmodelBypass(qboolean enable) {
+	sv.submodelBypass = enable;
+	return sv.submodelBypass;
 }

@@ -13,6 +13,8 @@ cvar_t		*con_notifytime;
 cvar_t		*con_scale;
 cvar_t		*con_speed;
 cvar_t		*con_timestamps;
+cvar_t		*con_opacity;
+cvar_t		*con_skipNotifyKeyword;
 
 #define	DEFAULT_CONSOLE_WIDTH	78
 #define CON_BLANK_CHAR			' '
@@ -221,86 +223,61 @@ void Con_ClearNotify( void ) {
 	}
 }
 
+/*
+================
+Con_Initialize
 
+Initialize console for the first time.
+================
+*/
+void Con_Initialize(void)
+{
+	int	i;
+
+	Vector4Copy(colorWhite, con.color);
+	con.charWidth = SMALLCHAR_WIDTH;
+	con.charHeight = SMALLCHAR_HEIGHT;
+	con.linewidth = DEFAULT_CONSOLE_WIDTH;
+	con.rowwidth = CON_TIMESTAMP_LEN + con.linewidth + 1;
+	con.totallines = CON_TEXTSIZE / con.rowwidth;
+	con.current = con.totallines - 1;
+	con.display = con.current;
+	for(i=0; i<CON_TEXTSIZE; i++)
+	{
+		con.text[i] = CON_BLANK;
+	}
+
+	con.initialized = qtrue;
+}
 
 /*
 ================
-Con_CheckResize
+Con_Resize
 
-If the line width has changed, reformat the buffer.
+Reformat the buffer for new row width
 ================
 */
-void Con_CheckResize (void)
+static void Con_Resize(int rowwidth)
 {
+	static conChar_t tbuf[CON_TEXTSIZE];
 	int		i, j;
-	int		width;
 	int		oldrowwidth;
 	int		oldtotallines;
-	static conChar_t tbuf[CON_TEXTSIZE];
 
-	if (cls.glconfig.vidWidth <= 0.0f)			// video hasn't been initialized yet
-	{
-		cls.xadjust = 1;
-		cls.yadjust = 1;
-		con.charWidth = SMALLCHAR_WIDTH;
-		con.charHeight = SMALLCHAR_HEIGHT;
-		con.linewidth = DEFAULT_CONSOLE_WIDTH;
-		con.rowwidth = CON_TIMESTAMP_LEN + con.linewidth + 1;
-		con.totallines = CON_TEXTSIZE / con.rowwidth;
-		con.current = con.totallines - 1;
-		for(i=0; i<CON_TEXTSIZE; i++)
-		{
-			con.text[i] = CON_BLANK;
-		}
-	}
-	else
-	{
-		float	scale = cls.glconfig.displayDPI / 96.0f; 
-		scale *= (con_scale && con_scale->value > 0.0f) ? con_scale->value : 1.0f;
-		int		charWidth = scale * SMALLCHAR_WIDTH;
+	oldrowwidth = con.rowwidth;
+	oldtotallines = con.totallines;
 
-		width = (cls.glconfig.vidWidth / charWidth) - 2;
+	con.rowwidth = rowwidth;
+	con.totallines = CON_TEXTSIZE / rowwidth;
 
-		if (width < 20) {
-			width = 20;
-			charWidth = cls.glconfig.vidWidth / 22;
-			scale = charWidth / SMALLCHAR_WIDTH;
-		}
-		if (charWidth == 0) {
-			charWidth = 1;
-			width = cls.glconfig.vidWidth - 2;
-			scale = 1.0f / SMALLCHAR_WIDTH;
-		}
+	Com_Memcpy (tbuf, con.text, sizeof(tbuf));
+	for(i=0; i<CON_TEXTSIZE; i++)
+		con.text[i] = CON_BLANK;
 
-		if (con_timestamps->integer) {
-			if (width == con.rowwidth - 1)
-				return;
-		} else {
-			if (width == con.rowwidth - CON_TIMESTAMP_LEN - 1)
-				return;
-		}
+	int oi = 0;
+	int ni = 0;
 
-		con.charWidth = charWidth;
-		con.charHeight = scale * SMALLCHAR_HEIGHT;
-
-		kg.g_consoleField.widthInChars = width - 1; // Command prompt
-
-		con.linewidth = width;
-		oldrowwidth = con.rowwidth;
-		con.rowwidth = width + 1;
-		if (!con_timestamps->integer)
-			con.rowwidth += CON_TIMESTAMP_LEN;
-		oldtotallines = con.totallines;
-		con.totallines = CON_TEXTSIZE / con.rowwidth;
-
-		Com_Memcpy (tbuf, con.text, sizeof(tbuf));
-		for(i=0; i<CON_TEXTSIZE; i++)
-			con.text[i] = CON_BLANK;
-
-		int oi = 0;
-		int ni = 0;
-
-		while (oi < oldtotallines)
+	while (oi < oldtotallines)
 		{
 			conChar_t	line[MAXPRINTMSG];
 			conChar_t	timestamp[CON_TIMESTAMP_LEN];
@@ -314,22 +291,22 @@ void Con_CheckResize (void)
 
 			// Store whole line concatenating on CON_WRAP
 			for (i = 0; oi < oldtotallines; oi++)
-			{
-				oldline = ((con.current + oi) % oldtotallines) * oldrowwidth;
+				{
+					oldline = ((con.current + oi) % oldtotallines) * oldrowwidth;
 
-				for (j = CON_TIMESTAMP_LEN; j < oldrowwidth - 1 && i < (int)ARRAY_LEN(line); j++, i++) {
-					line[i] = tbuf[oldline + j];
+					for (j = CON_TIMESTAMP_LEN; j < oldrowwidth - 1 && i < (int)ARRAY_LEN(line); j++, i++) {
+						line[i] = tbuf[oldline + j];
 
-					if (line[i].f.character != CON_BLANK_CHAR)
-						lineLen = i + 1;
+						if (line[i].f.character != CON_BLANK_CHAR)
+							lineLen = i + 1;
+					}
+
+					if (i == ARRAY_LEN(line))
+						break;
+
+					if (tbuf[oldline + j].compare != CON_WRAP.compare)
+						break;
 				}
-
-				if (i == ARRAY_LEN(line))
-					break;
-
-				if (tbuf[oldline + j].compare != CON_WRAP.compare)
-					break;
-			}
 
 			oi++;
 
@@ -357,19 +334,65 @@ void Con_CheckResize (void)
 			}
 		}
 
-		con.current = ni;
+	con.current = ni;
 
-		// Erase con.current line for next CL_ConsolePrint
-		int newline = (con.current % con.totallines) * con.rowwidth;
-		for (j = 0; j < con.rowwidth; j++)
-			con.text[newline + j] = CON_BLANK;
+	// Erase con.current line for next CL_ConsolePrint
+	int newline = (con.current % con.totallines) * con.rowwidth;
+	for (j = 0; j < con.rowwidth; j++)
+		con.text[newline + j] = CON_BLANK;
 
-		Con_ClearNotify ();
-	}
+	Con_ClearNotify ();
 
 	con.display = con.current;
 }
 
+/*
+================
+Con_CheckResize
+
+If the line width has changed, reformat the buffer.
+================
+*/
+void Con_CheckResize (void)
+{
+	int		charWidth, rowwidth, width;
+	float	scale;
+
+	assert(SMALLCHAR_HEIGHT >= SMALLCHAR_WIDTH);
+
+	scale = cls.glconfig.displayScale *
+		((con_scale->value > 0.0f) ? con_scale->value : 1.0f);
+	charWidth = scale * SMALLCHAR_WIDTH;
+
+	if (charWidth < 1) {
+		charWidth = 1;
+		scale = (float)charWidth / SMALLCHAR_WIDTH;
+	}
+
+	width = (cls.glconfig.vidWidth / charWidth) - 2;
+
+	if (width < 20) {
+		width = 20;
+		charWidth = cls.glconfig.vidWidth / 22;
+		scale = (float)charWidth / SMALLCHAR_WIDTH;
+	}
+
+	if (charWidth < 1) {
+		Com_Error(ERR_FATAL, "Con_CheckResize: Window too small to draw a console");
+	}
+
+	rowwidth = width + 1 + (con_timestamps->integer ? 0 : CON_TIMESTAMP_LEN);
+
+	con.charWidth = charWidth;
+	con.charHeight = scale * SMALLCHAR_HEIGHT;
+	con.linewidth = width;
+	kg.g_consoleField.widthInChars = width - 1; // Command prompt
+
+	if (con.rowwidth != rowwidth)
+	{
+		Con_Resize(rowwidth);
+	}
+}
 
 /*
 ================
@@ -382,6 +405,8 @@ void Con_Init (void) {
 	con_speed = Cvar_Get ("con_speed", "3", CVAR_GLOBAL | CVAR_ARCHIVE);
 	con_scale = Cvar_Get ("con_scale", "1", CVAR_GLOBAL | CVAR_ARCHIVE);
 	con_timestamps = Cvar_Get ("con_timestamps", "0", CVAR_GLOBAL | CVAR_ARCHIVE);
+	con_opacity = Cvar_Get ("con_opacity", "1.0", CVAR_GLOBAL | CVAR_ARCHIVE);
+	con_skipNotifyKeyword = Cvar_Get ("con_skipNotifyKeyword", "", CVAR_ARCHIVE); // NOT global, because it's made for compatibility with some mods
 
 	Field_Clear( &kg.g_consoleField );
 	kg.g_consoleField.widthInChars = DEFAULT_CONSOLE_WIDTH - 1; // Command prompt
@@ -405,7 +430,7 @@ void Con_Init (void) {
 Con_Linefeed
 ===============
 */
-void Con_Linefeed (void)
+void Con_Linefeed ( qboolean skipNotify )
 {
 	int		i;
 	int		line = (con.current % con.totallines) * con.rowwidth;
@@ -427,7 +452,7 @@ void Con_Linefeed (void)
 
 	// mark time for transparent overlay
 	if (con.current >= 0)
-		con.times[con.current % NUM_CON_TIMES] = cls.realtime;
+		con.times[con.current % NUM_CON_TIMES] = skipNotify ? 0 : cls.realtime;
 
 	con.x = 0;
 
@@ -450,10 +475,18 @@ All console printing must go through this in order to be logged to disk
 If no console is visible, the text will appear at the top of the game window
 ================
 */
-void CL_ConsolePrint( const char *txt, qboolean extendedColors ) {
+void CL_ConsolePrint( const char *txt, qboolean extendedColors, qboolean skipNotify ) {
 	unsigned char	color;
 	char			c;
 	int				y;
+
+	if ( con_skipNotifyKeyword && con_skipNotifyKeyword->string && con_skipNotifyKeyword->string[0] ) {
+		int keywordLength = strlen( con_skipNotifyKeyword->string );
+		if ( !Q_strncmp(txt, con_skipNotifyKeyword->string, keywordLength) ) {
+			txt += keywordLength;
+			skipNotify = qtrue;
+		}
+	}
 
 	// for some demos we don't want to ever show anything on the console
 	if ( cl_noprint && cl_noprint->integer ) {
@@ -461,14 +494,7 @@ void CL_ConsolePrint( const char *txt, qboolean extendedColors ) {
 	}
 
 	if (!con.initialized) {
-		con.color[0] =
-		con.color[1] =
-		con.color[2] =
-		con.color[3] = 1.0f;
-		con.linewidth = -1;
-		con.rowwidth = -1;
-		Con_CheckResize ();
-		con.initialized = qtrue;
+		Con_Initialize();
 	}
 
 	const bool use102color = MV_USE102COLOR;
@@ -491,7 +517,7 @@ void CL_ConsolePrint( const char *txt, qboolean extendedColors ) {
 		switch (c)
 		{
 		case '\n':
-			Con_Linefeed ();
+			Con_Linefeed( skipNotify );
 			break;
 		case '\r':
 			con.x = 0;
@@ -501,7 +527,7 @@ void CL_ConsolePrint( const char *txt, qboolean extendedColors ) {
 
 			if (con.x == con.rowwidth - CON_TIMESTAMP_LEN - 1) {
 				con.text[y * con.rowwidth + CON_TIMESTAMP_LEN + con.x] = CON_WRAP;
-				Con_Linefeed();
+				Con_Linefeed( skipNotify );
 				y = con.current % con.totallines;
 			}
 
@@ -722,6 +748,9 @@ void Con_DrawSolidConsole( float frac ) {
 		y = 0;
 	}
 	else {
+		static vec4_t consoleShaderColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+		consoleShaderColor[3] = Com_Clamp( 0.0f, 1.0f, con_opacity->value );
+		re.SetColor( consoleShaderColor );
 		SCR_DrawPic( 0, 0, SCREEN_WIDTH, (float) y, cls.consoleShader );
 	}
 
@@ -737,6 +766,8 @@ void Con_DrawSolidConsole( float frac ) {
 			(lines-(con.charHeight+con.charHeight/2)), vertext[x] );
 	}
 
+	// draw the input prompt, user text, and cursor if desired
+	Con_DrawInput ();
 
 	// draw the text
 	con.vislines = lines;
@@ -826,9 +857,6 @@ void Con_DrawSolidConsole( float frac ) {
 			}
 		}
 	}
-
-	// draw the input prompt, user text, and cursor if desired
-	Con_DrawInput ();
 
 	re.SetColor( NULL );
 }

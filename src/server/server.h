@@ -72,6 +72,10 @@ typedef struct {
 	int				  gentitySizeMV;
 
 	int				fixes;
+	int				resetServerTime;	// Reset sv.time on map change.
+										// 0 = cvar, 1 = always, 2 = never
+	qboolean		vmPlayerSnapshots;
+	qboolean		submodelBypass;
 } server_t;
 
 typedef struct {
@@ -117,6 +121,7 @@ typedef struct leakyBucket_s {
 typedef struct client_s {
 	clientState_t	state;
 	char			userinfo[MAX_INFO_STRING];		// name, etc
+	char			userinfoPostponed[MAX_INFO_STRING];
 
 	char			reliableCommands[MAX_RELIABLE_COMMANDS][MAX_STRING_CHARS];
 	int				reliableSequence;		// last added reliable message, not necesarily sent or acknowledged yet
@@ -240,6 +245,10 @@ extern	cvar_t	*sv_killserver;
 extern	cvar_t	*sv_mapname;
 extern	cvar_t	*sv_mapChecksum;
 extern	cvar_t	*sv_serverid;
+extern	cvar_t	*sv_minSnaps;
+extern	cvar_t	*sv_maxSnaps;
+extern	cvar_t	*sv_enforceSnaps;
+extern	cvar_t	*sv_minRate;
 extern	cvar_t	*sv_maxRate;
 extern	cvar_t	*sv_maxOOBRate;
 extern	cvar_t	*sv_minPing;
@@ -253,6 +262,8 @@ extern	cvar_t	*mv_serverversion;
 extern	cvar_t	*sv_hibernateFps;
 extern	cvar_t	*mv_apiConnectionless;
 extern	cvar_t	*sv_pingFix;
+extern	cvar_t	*sv_autoWhitelist;
+extern	cvar_t	*sv_dynamicSnapshots;
 
 // toggleable fixes
 extern	cvar_t	*mv_fixnamecrash;
@@ -264,6 +275,9 @@ extern	cvar_t	*mv_blockchargejump;
 extern	cvar_t	*mv_blockspeedhack;
 extern	cvar_t	*mv_fixsaberstealing;
 extern	cvar_t	*mv_fixplayerghosting;
+
+// jk2mv engine flags
+extern	cvar_t	*mv_resetServerTime;
 
 //===========================================================
 
@@ -325,6 +339,10 @@ void SV_ClientThink (int client, const usercmd_t *cmd);
 void SV_WriteDownloadToClient( client_t *cl , msg_t *msg );
 void SV_CloseDownload( client_t *cl );
 
+int SV_ClientRate( client_t *client );
+int SV_ClientSnaps( client_t *client );
+void SV_ClientUpdateSnaps( client_t *client );
+
 //
 // sv_ccmds.c
 //
@@ -335,6 +353,7 @@ void SV_Heartbeat_f( void );
 //
 void SV_AddServerCommand( client_t *client, const char *cmd );
 void SV_UpdateServerCommandsToClient( client_t *client, msg_t *msg );
+qboolean SV_UpdateServerCommandsToClient( client_t *client, msg_t *msg, qboolean allowPartial );
 void SV_WriteFrameToClient (client_t *client, msg_t *msg);
 void SV_SendMessageToClient( msg_t *msg, client_t *client );
 void SV_SendClientMessages( void );
@@ -355,6 +374,8 @@ void		SV_RestartGameProgs( void );
 qboolean	SV_inPVS (const vec3_t p1, const vec3_t p2);
 
 qboolean SV_MVAPI_ControlFixes(int fixes);
+qboolean SV_MVAPI_EnablePlayerSnapshots(qboolean enable);
+qboolean SV_MVAPI_EnableSubmodelBypass(qboolean enable);
 
 //
 // sv_bot.c
