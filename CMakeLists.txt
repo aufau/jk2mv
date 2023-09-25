@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.1.0)
 
+include(ExternalProject)
+
 # Link directly against libGL.so instead of using GLVND
 if (${CMAKE_VERSION} VERSION_GREATER "3.11")
 	cmake_policy(SET CMP0072 OLD)
@@ -326,7 +328,17 @@ endif()
 
 if(UseInternalJPEG)
 	set(GlobalDefines ${GlobalDefines} "INTERNAL_JPEG")
-	add_subdirectory(libs/jpeg-9a)
+	ExternalProject_Add(libjpeg-turbo
+		GIT_REPOSITORY https://github.com/libjpeg-turbo/libjpeg-turbo.git
+		GIT_TAG 3.0.0
+		BUILD_COMMAND ${CMAKE_COMMAND} --build . --target jpeg-static
+		INSTALL_COMMAND ""
+		CMAKE_ARGS
+		-DENABLE_SHARED=0
+		-DWITH_ARITH_DEC=0
+		-DWITH_ARITH_ENC=0
+		-DWITH_TURBOJPEG=0
+		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
 endif()
 
 if(UseInternalPNG)

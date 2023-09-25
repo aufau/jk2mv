@@ -330,6 +330,11 @@ if (BuildMVMP)
 		if(NOT JPEG_FOUND)
 			message(FATAL_ERROR "libjpeg dev files not found! Install it or set UseInternalJPEG ON")
 		endif()
+	else()
+		ExternalProject_Get_Property(libjpeg-turbo INSTALL_DIR)
+		ExternalProject_Get_Property(libjpeg-turbo BINARY_DIR)
+		set(JPEG_INCLUDE_DIR "${BINARY_DIR}")
+		set(JPEG_LIBRARIES "${BINARY_DIR}/libjpeg.a")
 	endif()
 	set(MVMPIncludeDirs ${MVMPIncludeDirs} ${JPEG_INCLUDE_DIR})
 
@@ -546,6 +551,10 @@ if (BuildMVMP)
 
 	# jk2mvmenu and assetsmv are required to run JK2MV
 	add_dependencies(${MVMP} ${MVMENU} assetsmv)
+
+	if(UseInternalJPEG)
+		add_dependencies(${MVMP} libjpeg-turbo)
+	endif()
 
 	if(BuildMVSDK)
 		add_dependencies(${MVMP} assetsmv2)
