@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <atomic>
 
 #include <SDL.h>
 
@@ -40,7 +41,7 @@ cvar_t *s_sdlDevSamps;
 cvar_t *s_sdlMixSamps;
 
 /* The audio callback. All the magic happens here. */
-static int dmapos = 0;
+static std::atomic_int dmapos;
 static int dmasize = 0;
 
 /*
@@ -50,9 +51,10 @@ SNDDMA_AudioCallback
 */
 static void SNDDMA_AudioCallback(void *userdata, Uint8 *stream, int len)
 {
-	int pos = (dmapos * (dma.samplebits/8));
+	int vdmapos = dmapos;
+	int pos = (vdmapos * (dma.samplebits/8));
 	if (pos >= dmasize)
-		dmapos = pos = 0;
+		vdmapos = pos = 0;
 
 	if (!snd_inited)  /* shouldn't happen, but just in case... */
 	{
@@ -72,16 +74,18 @@ static void SNDDMA_AudioCallback(void *userdata, Uint8 *stream, int len)
 		}
 		memcpy(stream, dma.buffer + pos, len1);
 		if (len2 <= 0)
-			dmapos += (len1 / (dma.samplebits/8));
+			vdmapos += (len1 / (dma.samplebits/8));
 		else  /* wraparound? */
 		{
 			memcpy(stream+len1, dma.buffer, len2);
-			dmapos = (len2 / (dma.samplebits/8));
+			vdmapos = (len2 / (dma.samplebits/8));
 		}
 	}
 
-	if (dmapos >= dmasize)
-		dmapos = 0;
+	if (vdmapos >= dmasize)
+		vdmapos = 0;
+
+	dmapos = vdmapos;
 }
 
 static struct
@@ -242,12 +246,12 @@ qboolean SNDDMA_Init(int khz)
 	dma.speed = obtained.freq;
 	dmasize = (dma.samples * (dma.samplebits/8));
 	dma.buffer = (byte *)calloc(1, dmasize);
+	snd_inited = qtrue;
 
 	Com_Printf("Starting SDL audio callback...\n");
 	SDL_PauseAudioDevice(dev, 0);  // start callback.
 
 	Com_Printf("SDL audio initialized.\n");
-	snd_inited = qtrue;
 	return qtrue;
 }
 
