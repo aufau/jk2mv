@@ -206,6 +206,7 @@ if (BuildMVMP OR BuildMVDED)
 
 			"win32/q3asm.asm"
 		)
+		set_source_files_properties("win32/q3asm.asm" PROPERTIES LANGUAGE ASM_MASM)
 		source_group("win32" FILES ${MVMPDEDWIN32Files})
 		set(MVMPDEDIncludeDirs ${MVMPDEDIncludeDirs} "${LIBDir}/StackWalker/include")
 		set(MVMPDEDFiles ${MVMPDEDFiles} ${MVMPDEDWIN32Files})
