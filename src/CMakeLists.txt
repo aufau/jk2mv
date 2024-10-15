@@ -170,6 +170,10 @@ if (BuildMVMP OR BuildMVDED)
 		set(MVMPDEDCommonFiles ${MVMPDEDCommonFiles}
 			"qcommon/vm_arm.cpp"
 		)
+	elseif(ARCH_ARM64)
+		set(MVMPDEDCommonFiles ${MVMPDEDCommonFiles}
+			"qcommon/vm_aarch64.cpp"
+		)
 	endif()
 	source_group("qcommon" FILES ${MVMPDEDCommonFiles})
 	set(MVMPDEDFiles ${MVMPDEDFiles} ${MVMPDEDCommonFiles})

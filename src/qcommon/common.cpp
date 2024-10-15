@@ -66,7 +66,7 @@ cvar_t	*cl_paused;
 cvar_t	*sv_paused;
 cvar_t	*com_cameraMode;
 cvar_t	*com_busyWait;
-
+cvar_t	*vm_rtChecks;
 cvar_t	*mv_apienabled;
 cvar_t	*com_timestamps;
 cvar_t	*com_debugMessage;
@@ -2526,6 +2526,7 @@ void Com_Init( char *commandLine ) {
 
 	com_developer = Cvar_Get ("developer", "0", CVAR_TEMP );
 	com_logfile = Cvar_Get ("logfile", "0", CVAR_TEMP );
+	vm_rtChecks = Cvar_Get( "vm_rtChecks", XSTR(VM_RTCHECK_ALL), CVAR_INIT | CVAR_VM_NOWRITE );
 
 	com_timescale = Cvar_Get ("timescale", "1", CVAR_CHEAT | CVAR_SYSTEMINFO );
 	com_fixedtime = Cvar_Get ("fixedtime", "0", CVAR_CHEAT);

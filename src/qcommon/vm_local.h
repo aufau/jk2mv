@@ -126,10 +126,10 @@ typedef enum {
 	OP_MULF,
 
 	OP_CVIF,
-	OP_CVFI
+	OP_CVFI,
+
+	OP_MAX
 } opcode_t;
-
-
 
 typedef int	vmptr_t;
 
@@ -153,6 +153,9 @@ struct vm_s {
 	intptr_t	(*systemCall)( intptr_t *parms );
 
 	//------------------------------------
+
+	int32_t		*opStack;			// pointer to local function stack
+	int32_t		*opStackTop;
 
 	char		name[MAX_QPATH];
 	void		*searchPath;				// hint for FS_ReadFileDir()
@@ -191,6 +194,8 @@ struct vm_s {
 
 	byte		*jumpTableTargets;
 	int			numJumpTableTargets;
+
+	qboolean	forceDataMask;
 
 	int			mvapilevel;
 	int			mvmenu;

@@ -335,6 +335,13 @@ typedef enum {
 
 #define	MAX_VM		3
 
+// flags for vm_rtChecks cvar
+#define VM_RTCHECK_PSTACK  1
+#define VM_RTCHECK_OPSTACK 2
+#define VM_RTCHECK_JUMP    4
+#define VM_RTCHECK_DATA    8
+#define VM_RTCHECK_ALL    15
+
 void	VM_Init( void );
 vm_t	*VM_Create(const char *module, qboolean mvOverride, intptr_t(*systemCalls)(intptr_t *), vmInterpret_t interpret);
 // module should be bare: "cgame", not "cgame.dll" or "vm/cgame.qvm"
@@ -819,7 +826,7 @@ extern	cvar_t	*com_buildScript;		// for building release pak files
 extern	cvar_t	*com_journal;
 extern	cvar_t	*com_cameraMode;
 extern	cvar_t	*com_busyWait;
-
+extern	cvar_t	*vm_rtChecks;
 extern	cvar_t	*mv_apienabled;
 extern	cvar_t	*com_debugMessage;
 

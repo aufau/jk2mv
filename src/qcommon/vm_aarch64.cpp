@@ -39,6 +39,179 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "vm_local.h"
 
+// q3e vm_local.h
+#define	MAX_OPSTACK_SIZE	512
+#define	PROC_OPSTACK_SIZE	30
+
+typedef struct {
+	int32_t	value;     // 32
+	byte	op;        // 8
+	byte	opStack;   // 8
+	unsigned jused:1;  // this instruction is a jump target
+	unsigned swtch:1;  // indirect jump
+	unsigned safe:1;   // non-masked OP_STORE*
+	unsigned endp:1;   // for last OP_LEAVE instruction
+	unsigned fpu:1;    // load into FPU register
+	unsigned njump:1;  // near jump
+} instruction_t;
+
+void VM_ReplaceInstructions( vm_t *vm, instruction_t *buf );
+
+#define JUMP	(1<<0)
+#define FPU		(1<<1)
+
+typedef struct opcode_info_s
+{
+	int	size;
+	int	stack;
+	int	nargs;
+	int	flags;
+} opcode_info_t;
+
+extern opcode_info_t ops[ OP_MAX ];
+
+// q3e vm.c
+
+opcode_info_t ops[ OP_MAX ] =
+{
+	// size, stack, nargs, flags
+	{ 0, 0, 0, 0 }, // undef
+	{ 0, 0, 0, 0 }, // ignore
+	{ 0, 0, 0, 0 }, // break
+
+	{ 4, 0, 0, 0 }, // enter
+	{ 4,-4, 0, 0 }, // leave
+	{ 0, 0, 1, 0 }, // call
+	{ 0, 4, 0, 0 }, // push
+	{ 0,-4, 1, 0 }, // pop
+
+	{ 4, 4, 0, 0 }, // const
+	{ 4, 4, 0, 0 }, // local
+	{ 0,-4, 1, 0 }, // jump
+
+	{ 4,-8, 2, JUMP }, // eq
+	{ 4,-8, 2, JUMP }, // ne
+
+	{ 4,-8, 2, JUMP }, // lti
+	{ 4,-8, 2, JUMP }, // lei
+	{ 4,-8, 2, JUMP }, // gti
+	{ 4,-8, 2, JUMP }, // gei
+
+	{ 4,-8, 2, JUMP }, // ltu
+	{ 4,-8, 2, JUMP }, // leu
+	{ 4,-8, 2, JUMP }, // gtu
+	{ 4,-8, 2, JUMP }, // geu
+
+	{ 4,-8, 2, JUMP|FPU }, // eqf
+	{ 4,-8, 2, JUMP|FPU }, // nef
+
+	{ 4,-8, 2, JUMP|FPU }, // ltf
+	{ 4,-8, 2, JUMP|FPU }, // lef
+	{ 4,-8, 2, JUMP|FPU }, // gtf
+	{ 4,-8, 2, JUMP|FPU }, // gef
+
+	{ 0, 0, 1, 0 }, // load1
+	{ 0, 0, 1, 0 }, // load2
+	{ 0, 0, 1, 0 }, // load4
+	{ 0,-8, 2, 0 }, // store1
+	{ 0,-8, 2, 0 }, // store2
+	{ 0,-8, 2, 0 }, // store4
+	{ 1,-4, 1, 0 }, // arg
+	{ 4,-8, 2, 0 }, // bcopy
+
+	{ 0, 0, 1, 0 }, // sex8
+	{ 0, 0, 1, 0 }, // sex16
+
+	{ 0, 0, 1, 0 }, // negi
+	{ 0,-4, 3, 0 }, // add
+	{ 0,-4, 3, 0 }, // sub
+	{ 0,-4, 3, 0 }, // divi
+	{ 0,-4, 3, 0 }, // divu
+	{ 0,-4, 3, 0 }, // modi
+	{ 0,-4, 3, 0 }, // modu
+	{ 0,-4, 3, 0 }, // muli
+	{ 0,-4, 3, 0 }, // mulu
+
+	{ 0,-4, 3, 0 }, // band
+	{ 0,-4, 3, 0 }, // bor
+	{ 0,-4, 3, 0 }, // bxor
+	{ 0, 0, 1, 0 }, // bcom
+
+	{ 0,-4, 3, 0 }, // lsh
+	{ 0,-4, 3, 0 }, // rshi
+	{ 0,-4, 3, 0 }, // rshu
+
+	{ 0, 0, 1, FPU }, // negf
+	{ 0,-4, 3, FPU }, // addf
+	{ 0,-4, 3, FPU }, // subf
+	{ 0,-4, 3, FPU }, // divf
+	{ 0,-4, 3, FPU }, // mulf
+
+	{ 0, 0, 1, 0 },   // cvif
+	{ 0, 0, 1, FPU }  // cvfi
+};
+
+/*
+=================
+VM_LoadInstructions
+
+loads instructions in structured format
+=================
+*/
+const char *VM_LoadInstructions( const byte *code_pos, int codeLength, int instructionCount, instruction_t *buf )
+{
+	static char errBuf[ 128 ];
+	const byte *code_start, *code_end;
+	int i, n, op0, op1, opStack;
+	instruction_t *ci;
+
+	code_start = code_pos; // for printing
+	code_end = code_pos + codeLength;
+
+	ci = buf;
+	opStack = 0;
+	op1 = OP_UNDEF;
+
+	// load instructions and perform some initial calculations/checks
+	for ( i = 0; i < instructionCount; i++, ci++, op1 = op0 ) {
+		op0 = *code_pos;
+		if ( op0 < 0 || op0 >= OP_MAX ) {
+			sprintf( errBuf, "bad opcode %02X at offset %d", op0, (int)(code_pos - code_start) );
+			return errBuf;
+		}
+		n = ops[ op0 ].size;
+		if ( code_pos + 1 + n  > code_end ) {
+			sprintf( errBuf, "code_pos > code_end" );
+			return errBuf;
+		}
+		code_pos++;
+		ci->op = op0;
+		if ( n == 4 ) {
+			ci->value = LittleLong( *((int32_t*)code_pos) );
+			code_pos += 4;
+		} else if ( n == 1 ) {
+			ci->value = *((unsigned char*)code_pos);
+			code_pos += 1;
+		} else {
+			ci->value = 0;
+		}
+
+		if ( ops[ op0 ].flags & FPU ) {
+			ci->fpu = 1;
+		}
+
+		// setup jump value from previous const
+		if ( op0 == OP_JUMP && op1 == OP_CONST ) {
+			ci->value = (ci-1)->value;
+		}
+
+		ci->opStack = opStack;
+		opStack += ops[ op0 ].stack;
+	}
+
+	return NULL;
+}
+
 #define NUM_PASSES 1
 
 // additional integrity checks
@@ -243,17 +416,17 @@ static void VM_FreeBuffers( void )
 
 static void VM_Destroy_Compiled( vm_t *vm )
 {
-	if ( vm->codeBase.ptr )
+	if ( vm->codeBase )
 	{
 #ifdef _WIN32
-		VirtualFree( vm->codeBase.ptr, 0, MEM_RELEASE );
+		VirtualFree( vm->codeBase, 0, MEM_RELEASE );
 #else
-		if ( munmap( vm->codeBase.ptr, vm->codeLength ) )
+		if ( munmap( vm->codeBase, vm->codeLength ) )
 			Com_Printf( S_COLOR_RED "%s(): memory unmap failed, possible memory leak!\n", __func__ );
 #endif
 	}
 
-	vm->codeBase.ptr = NULL;
+	vm->codeBase = NULL;
 }
 
 
@@ -2704,7 +2877,7 @@ static void dump_code( const char *vmname, uint32_t *code, int32_t code_len )
 #endif
 
 
-qboolean VM_Compile( vm_t *vm, vmHeader_t *header )
+void VM_Compile( vm_t *vm, vmHeader_t *header )
 {
 	instruction_t *ci;
 	const char *errMsg;
@@ -2720,25 +2893,25 @@ qboolean VM_Compile( vm_t *vm, vmHeader_t *header )
 	reg_t *reg;
 	int i;
 
-	inst = (instruction_t*)Z_Malloc( (header->instructionCount + 8 ) * sizeof( instruction_t ) );
+	inst = (instruction_t*)Z_Malloc( (header->instructionCount + 8 ) * sizeof( instruction_t ), TAG_VM, qtrue );
 	//instructionOffsets = (uint32_t*)Z_Malloc( header->instructionCount * sizeof( uint32_t ) );
 
 	errMsg = VM_LoadInstructions( (byte *) header + header->codeOffset, header->codeLength, header->instructionCount, inst );
-	if ( !errMsg ) {
-		errMsg = VM_CheckInstructions( inst, vm->instructionCount, vm->jumpTableTargets, vm->numJumpTableTargets, vm->exactDataLength );
-	}
+	// if ( !errMsg ) {
+	// 	errMsg = VM_CheckInstructions( inst, vm->instructionCount, vm->jumpTableTargets, vm->numJumpTableTargets, vm->exactDataLength );
+	// }
 
 	if ( errMsg ) {
 		VM_FreeBuffers();
-		Com_Printf( S_COLOR_YELLOW "%s(%s) error: %s\n", __func__, vm->name, errMsg );
-		return qfalse;
+		Com_Error(ERR_DROP, "%s(%s) error: %s\n", __func__, vm->name, errMsg );
 	}
 
 	if ( !vm->instructionPointers ) {
-		vm->instructionPointers = Hunk_Alloc( header->instructionCount * sizeof(vm->instructionPointers[0]), h_high );
+		vm->instructionPointers = (intptr_t *)Hunk_Alloc( header->instructionCount * sizeof(vm->instructionPointers[0]), h_high );
 	}
 
-	VM_ReplaceInstructions( vm, inst );
+	// VM_ReplaceInstructions( vm, inst );
+	vm->forceDataMask = qtrue;
 
 	litBase = NULL;
 #ifdef USE_LITERAL_POOL
@@ -2748,7 +2921,7 @@ qboolean VM_Compile( vm_t *vm, vmHeader_t *header )
 	memset( savedOffset, 0, sizeof( savedOffset ) );
 
 	code = NULL;
-	vm->codeBase.ptr = NULL;
+	vm->codeBase = NULL;
 
 	for ( pass = 0; pass < NUM_PASSES; pass++ ) {
 __recompile:
@@ -3410,7 +3583,7 @@ __recompile:
 
 	} // pass
 
-	if ( vm->codeBase.ptr == NULL ) {
+	if ( vm->codeBase == NULL ) {
 #ifdef USE_LITERAL_POOL
 		uint32_t allocSize = compiledOfs + numLiterals * sizeof( uint32_t );
 #else
@@ -3418,25 +3591,23 @@ __recompile:
 #endif
 
 #ifdef _WIN32
-		vm->codeBase.ptr = VirtualAlloc( NULL, allocSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE );
-		if ( !vm->codeBase.ptr ) {
+		vm->codeBase = VirtualAlloc( NULL, allocSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE );
+		if ( !vm->codeBase ) {
 			VM_FreeBuffers();
-			Com_Printf( S_COLOR_YELLOW "%s(%s): VirtualAlloc failed\n", __func__, vm->name );
-			return qfalse;
+			Com_Error(ERR_DROP, "%s(%s): VirtualAlloc failed\n", __func__, vm->name );
 		}
 #else
-		vm->codeBase.ptr = mmap( NULL, allocSize, PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0 );
-		if ( vm->codeBase.ptr == MAP_FAILED ) {
+		vm->codeBase = (byte *)mmap( NULL, allocSize, PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0 );
+		if ( vm->codeBase == MAP_FAILED ) {
 			VM_FreeBuffers();
-			Com_Printf( S_COLOR_YELLOW "%s(%s): mmap failed\n", __func__, vm->name );
-			return qfalse;
+			Com_Error(ERR_DROP, "%s(%s): mmap failed\n", __func__, vm->name );
 		}
 #endif
 
 		vm->codeLength = allocSize; // code + literals
-		vm->codeSize = compiledOfs;
-		code = (uint32_t*)vm->codeBase.ptr;
-		litBase = (uint32_t*)(vm->codeBase.ptr + compiledOfs);
+		// vm->codeSize = compiledOfs;
+		code = (uint32_t*)vm->codeBase;
+		litBase = (uint32_t*)(vm->codeBase + compiledOfs);
 		goto __recompile;
 	}
 
@@ -3460,7 +3631,7 @@ __recompile:
 			vm->instructionPointers[ i ] = (intptr_t)BadJump;
 			continue;
 		}
-		vm->instructionPointers[ i ] += (intptr_t)vm->codeBase.ptr;
+		vm->instructionPointers[ i ] += (intptr_t)vm->codeBase;
 	}
 
 	VM_FreeBuffers();
@@ -3469,32 +3640,28 @@ __recompile:
 	{
 		DWORD oldProtect = 0;
 		// remove write permissions
-		if ( !VirtualProtect( vm->codeBase.ptr, vm->codeLength, PAGE_EXECUTE_READ, &oldProtect ) ) {
+		if ( !VirtualProtect( vm->codeBase, vm->codeLength, PAGE_EXECUTE_READ, &oldProtect ) ) {
 			VM_Destroy_Compiled( vm );
-			Com_Printf( S_COLOR_YELLOW "%s(%s): VirtualProtect failed\n", __func__, vm->name );
-			return qfalse;
+			Com_Error(ERR_DROP, "%s(%s): VirtualProtect failed\n", __func__, vm->name );
 		}
 	}
 #else
-	if ( mprotect( vm->codeBase.ptr, vm->codeLength, PROT_READ | PROT_EXEC ) ) {
+	if ( mprotect( vm->codeBase, vm->codeLength, PROT_READ | PROT_EXEC ) ) {
 		VM_Destroy_Compiled( vm );
-		Com_Printf( S_COLOR_YELLOW "%s(%s): mprotect failed\n", __func__, vm->name );
-		return qfalse;
+		Com_Error(ERR_DROP, "%s(%s): mprotect failed\n", __func__, vm->name );
 	}
 
 	// clear icache, http://blogs.arm.com/software-enablement/141-caches-and-self-modifying-code/
-	__clear_cache( vm->codeBase.ptr, vm->codeBase.ptr + vm->codeLength );
+	__clear_cache( vm->codeBase, vm->codeBase + vm->codeLength );
 #endif
 
 	vm->destroy = VM_Destroy_Compiled;
 
 	Com_Printf( "VM file %s compiled to %i bytes of code\n", vm->name, vm->codeLength );
-
-	return qtrue;
 }
 
 
-int32_t VM_CallCompiled( vm_t *vm, int nargs, int32_t *args )
+int VM_CallCompiled( vm_t *vm, int32_t *args )
 {
 	int32_t		opStack[ MAX_OPSTACK_SIZE ];
 	int32_t		stackOnEntry;
@@ -3504,11 +3671,11 @@ int32_t VM_CallCompiled( vm_t *vm, int nargs, int32_t *args )
 	// we might be called recursively, so this might not be the very top
 	stackOnEntry = vm->programStack;
 
-	vm->programStack -= ( MAX_VMMAIN_CALL_ARGS + 2 ) * sizeof( int32_t );
+	vm->programStack -= ( MAX_VMMAIN_ARGS + 2 ) * sizeof( int32_t );
 
 	// set up the stack frame
 	image = (int32_t*) ( vm->dataBase + vm->programStack );
-	for ( i = 0; i < nargs; i++ ) {
+	for ( i = 0; i < MAX_VMMAIN_ARGS; i++ ) {
 		image[i + 2] = args[i];
 	}
 
@@ -3524,14 +3691,14 @@ int32_t VM_CallCompiled( vm_t *vm, int nargs, int32_t *args )
 	vm->opStack = opStack;
 	vm->opStackTop = opStack + ARRAY_LEN( opStack ) - 1;
 
-	vm->codeBase.func(); // go into generated code
+	((void(*)(void))vm->codeBase)(); // go into generated code
 
 #ifdef DEBUG_VM
 	if ( opStack[0] != 0xDEADC0DE ) {
 		Com_Error( ERR_DROP, "%s(%s): opStack corrupted in compiled code", __func__, vm->name );
 	}
 
-	if ( vm->programStack != (int32_t)( stackOnEntry - ( MAX_VMMAIN_CALL_ARGS + 2 ) * sizeof( int32_t ) ) ) {
+	if ( vm->programStack != (int32_t)( stackOnEntry - ( MAX_VMMAIN_ARGS + 2 ) * sizeof( int32_t ) ) ) {
 		Com_Error( ERR_DROP, "%s(%s): programStack corrupted in compiled code", __func__, vm->name );
 	}
 #endif
