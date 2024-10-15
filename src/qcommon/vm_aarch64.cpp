@@ -751,7 +751,7 @@ static qboolean can_encode_imm12( const uint32_t imm12, const uint32_t scale )
 {
 	const uint32_t mask = (1<<scale) - 1;
 
-	if ( imm12 & mask || imm12 >= 4096 * (1 << scale) )
+	if ( imm12 & mask || imm12 >= 4096u * (1 << scale) )
 		return qfalse;
 
 	return qtrue;
@@ -762,7 +762,7 @@ static uint32_t imm12_scale( const uint32_t imm12, const uint32_t scale )
 {
 	const uint32_t mask = (1<<scale) - 1;
 
-	if ( imm12 & mask || imm12 >= 4096 * (1 << scale) )
+	if ( imm12 & mask || imm12 >= 4096u * (1 << scale) )
 		DROP( "can't encode offset %i with scale %i", imm12, (1 << scale) );
 
 	return imm12 >> scale;
@@ -1231,7 +1231,7 @@ static qboolean find_sx_var( uint32_t *reg, const var_addr_t *v ) {
 
 static void reduce_map_size( reg_t *reg, uint32_t size ) {
 	int i;
-	for ( i = 0; i < ARRAY_LEN( reg->vars.map ); i++ ) {
+	for ( i = 0; i < (int)ARRAY_LEN( reg->vars.map ); i++ ) {
 		if ( reg->vars.map[i].size > size ) {
 			reg->vars.map[i].size = size;
 		}
@@ -1613,7 +1613,7 @@ static qboolean find_rx_const( uint32_t imm )
 	uint32_t mask = build_rx_mask() | build_opstack_mask( TYPE_RX );
 	int i;
 
-	for ( i = 0; i < ARRAY_LEN( rx_list_cache ); i++ ) {
+	for ( i = 0; i < (int)ARRAY_LEN( rx_list_cache ); i++ ) {
 		reg_t *r;
 		uint32_t n = rx_list_cache[ i ];
 		if ( mask & ( 1 << n ) ) {
@@ -1647,13 +1647,13 @@ static uint32_t alloc_rx_const( uint32_t pref, uint32_t imm )
 		// support only dynamic allocation mode
 		const uint32_t mask = build_rx_mask() | build_opstack_mask( TYPE_RX );
 		int min_ref = MAX_QINT;
-		int min_ip = MAX_QINT;
+		uint32_t min_ip = MAX_QINT;
 		int idx = -1;
 		int i, n;
 
 		if ( ( pref & XMASK ) == 0 ) {
 			// we can select from already masked registers
-			for ( n = 0; n < ARRAY_LEN( rx_regs ); n++ ) {
+			for ( n = 0; n < (int)ARRAY_LEN( rx_regs ); n++ ) {
 				r = &rx_regs[n];
 				if ( r->type_mask & RTYPE_CONST && r->cnst.value == imm ) {
 					r->refcnt++;
@@ -1664,7 +1664,7 @@ static uint32_t alloc_rx_const( uint32_t pref, uint32_t imm )
 			}
 		}
 
-		for ( i = 0; i < ARRAY_LEN( rx_list_cache ); i++ ) {
+		for ( i = 0; i < (int)ARRAY_LEN( rx_list_cache ); i++ ) {
 			n = rx_list_cache[i];
 			if ( mask & ( 1 << n ) ) {
 				// target register must be unmasked and not present on the opStack
@@ -1738,13 +1738,13 @@ static uint32_t alloc_sx_const( uint32_t pref, uint32_t imm )
 		// support only dynamic allocation mode
 		const uint32_t mask = build_sx_mask() | build_opstack_mask( TYPE_SX );
 		int min_ref = MAX_QINT;
-		int min_ip = MAX_QINT;
+		uint32_t min_ip = MAX_QINT;
 		int idx = -1;
 		int i, n;
 
 		if ( ( pref & XMASK ) == 0 ) {
 			// we can select from already masked registers
-			for ( n = 0; n < ARRAY_LEN( sx_regs ); n++ ) {
+			for ( n = 0; n < (int)ARRAY_LEN( sx_regs ); n++ ) {
 				r = &sx_regs[n];
 				if ( r->type_mask & RTYPE_CONST && r->cnst.value == imm ) {
 					r->refcnt++;
@@ -1755,7 +1755,7 @@ static uint32_t alloc_sx_const( uint32_t pref, uint32_t imm )
 			}
 		}
 
-		for ( i = 0; i < ARRAY_LEN( sx_list_cache ); i++ ) {
+		for ( i = 0; i < (int)ARRAY_LEN( sx_list_cache ); i++ ) {
 			n = sx_list_cache[i];
 			if ( mask & ( 1 << n ) ) {
 				// target register must be unmasked and not present on the opStack
@@ -1820,10 +1820,11 @@ static uint32_t dyn_alloc_rx( uint32_t pref )
 	const uint32_t _rx_mask = build_rx_mask();
 	const uint32_t mask = _rx_mask | build_opstack_mask( TYPE_RX );
 	const reg_t *reg, *used = NULL;
-	uint32_t i, n;
+	int i;
+	uint32_t n;
 
 	// try to bypass registers with metadata
-	for ( i = 0; i < ARRAY_LEN( rx_list_alloc ); i++ ) {
+	for ( i = 0; i < (int)ARRAY_LEN( rx_list_alloc ); i++ ) {
 		n = rx_list_alloc[i];
 		if ( mask & ( 1 << n ) ) {
 			continue;
@@ -1908,10 +1909,11 @@ static uint32_t dyn_alloc_sx( uint32_t pref )
 	const uint32_t _sx_mask = build_sx_mask();
 	const uint32_t mask = _sx_mask | build_opstack_mask( TYPE_SX );
 	const reg_t *reg, *used = NULL;
-	uint32_t i, n;
+	int i;
+	uint32_t n;
 
 	// try to bypass registers with metadata
-	for ( i = 0; i < ARRAY_LEN( sx_list_alloc ); i++ ) {
+	for ( i = 0; i < (int)ARRAY_LEN( sx_list_alloc ); i++ ) {
 		n = sx_list_alloc[i];
 		if ( mask & ( 1 << n ) ) {
 			continue;
@@ -1938,7 +1940,7 @@ static uint32_t dyn_alloc_sx( uint32_t pref )
 	}
 
 	// no free registers, flush bottom of the opStack
-	for ( i = 0; i <= opstack; i++ ) {
+	for ( i = 0; i <= (int)opstack; i++ ) {
 		opstack_t *it = opstackv + i;
 		if ( it->type == TYPE_SX ) {
 			n = it->value;
@@ -2983,7 +2985,7 @@ __recompile:
 
 	savedOffset[ FUNC_ENTR ] = compiledOfs; // offset to vmMain() entry point
 
-	while ( ip < header->instructionCount ) {
+	while ( ip < (uint32_t)header->instructionCount ) {
 
 		ci = &inst[ ip + 0 ];
 
@@ -3615,7 +3617,7 @@ __recompile:
 	// append literals to the code
 	if ( numLiterals ) {
 		uint32_t *lp = litBase;
-		for ( i = 0; i < numLiterals; i++, lp++ ) {
+		for ( i = 0; i < (int)numLiterals; i++, lp++ ) {
 			*lp = litList[ i ].value;
 		}
 	}
@@ -3694,7 +3696,7 @@ int VM_CallCompiled( vm_t *vm, int32_t *args )
 	((void(*)(void))vm->codeBase)(); // go into generated code
 
 #ifdef DEBUG_VM
-	if ( opStack[0] != 0xDEADC0DE ) {
+	if ( opStack[0] != (int)0xDEADC0DE ) {
 		Com_Error( ERR_DROP, "%s(%s): opStack corrupted in compiled code", __func__, vm->name );
 	}
 
