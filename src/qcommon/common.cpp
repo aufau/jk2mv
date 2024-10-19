@@ -1135,6 +1135,13 @@ int Z_Size(void *pvAddress)
 	return pMemory->iSize;
 }
 
+memtag_t Z_Tag(void *pvAddress)
+{
+	zoneHeader_t *pMemory = ((zoneHeader_t *)pvAddress) - 1;
+
+	return pMemory->eTag;
+}
+
 
 // Frees a block of memory...
 //
@@ -1368,6 +1375,62 @@ const char *CopyString( const char *in, memtag_t eTag ) {
 	return out;
 }
 
+/*
+========================
+StringPool
+
+Growing pool for allocating immutable C strings in Zone Memory
+that avoids too many allocations and fragmentation
+========================
+*/
+
+typedef struct stringPool_s {
+	unsigned int		size;
+	unsigned int		tail;
+	struct stringPool_s	*next;
+	char				buffer[0];
+} stringPool_t;
+
+stringPool_t *Z_StringPoolNew(unsigned int size, memtag_t eTag) {
+	unsigned int size_ = PAD(size, 16);
+	stringPool_t *chunk = (stringPool_t *)Z_Malloc(offsetof(stringPool_t, buffer) + size_, eTag, qfalse);
+
+	chunk->size = size_;
+	chunk->tail = 0;
+	chunk->next = NULL;
+
+	return chunk;
+}
+
+void Z_StringPoolFree(stringPool_t * pool) {
+	stringPool_t *chunk = pool;
+
+	while (chunk) {
+		stringPool_t *nextChunk = chunk->next;
+		Z_Free(chunk);
+		chunk = nextChunk;
+	}
+}
+
+const char *Z_StringPoolAdd(stringPool_t * pool, const char * string) {
+	stringPool_t *chunk = pool;
+	unsigned int len = strlen(string) + 1;
+
+	while (chunk->size < chunk->tail + len) {
+		if (!chunk->next) {
+			unsigned int size = 2 * MAX(len, chunk->size);
+			memtag_t eTag = Z_Tag(chunk);
+			chunk->next = Z_StringPoolNew(size, eTag);
+		}
+
+		chunk = chunk->next;
+	}
+
+	memcpy(chunk->buffer + chunk->tail, string, len);
+	chunk->tail += len;
+
+	return chunk->buffer + chunk->tail - len;
+}
 
 /*
 ==============================================================================
