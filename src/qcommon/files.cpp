@@ -195,6 +195,13 @@ typedef struct fileInPack_s {
 	struct	fileInPack_s*	next;		// next file in the hash
 } fileInPack_t;
 
+typedef struct stringBuffer_s {
+	unsigned int			size;
+	unsigned int			tail;
+	struct stringBuffer_s	*next;
+	char					buffer[0];
+} stringBuffer_t;
+
 enum {
 	PACKGVC_UNKNOWN = 0,
 	PACKGVC_1_02 = 1,
@@ -215,6 +222,7 @@ typedef struct {
 	int				hashSize;					// hash table size (power of 2)
 	fileInPack_t*	*hashTable;					// hash table
 	fileInPack_t*	buildBuffer;				// buffer with the filenames etc.
+	stringBuffer_t*	namesBuffer;				// buffer with filenames
 	int				gvc;						// game-version compatibility
 	qboolean		isJKA;						// jka assets
 } pack_t;
@@ -324,6 +332,45 @@ static inline qboolean FS_CheckHandle(const char *fname, fileHandle_t f, module_
 }
 
 #define FS_CHECKHANDLE(f, module, retval) if (!FS_CheckHandle(__FUNCTION__, f, module)) return retval;
+
+static stringBuffer_t *FS_NewStringBuffer(unsigned int size) {
+	unsigned int size_ = PAD(size, 16);
+	stringBuffer_t *buffer = (stringBuffer_t *)Z_Malloc(offsetof(stringBuffer_t, buffer) + size_, TAG_FILESYS, qfalse);
+
+	buffer->size = size_;
+	buffer->tail = 0;
+	buffer->next = NULL;
+
+	return buffer;
+}
+
+static void FS_FreeStringBuffer(stringBuffer_t * buffer) {
+	stringBuffer_t *chunk = buffer;
+
+	while (chunk) {
+		stringBuffer_t *nextChunk = chunk->next;
+		Z_Free(chunk);
+		chunk = nextChunk;
+	}
+}
+
+static const char *FS_AppendStringBuffer(stringBuffer_t * buffer, const char * string) {
+	stringBuffer_t *chunk = buffer;
+	unsigned int len = strlen(string) + 1;
+
+	while (chunk->size < chunk->tail + len) {
+		if (!chunk->next) {
+			chunk->next = FS_NewStringBuffer(2 * MAX(len, chunk->size));
+		}
+
+		chunk = chunk->next;
+	}
+
+	memcpy(chunk->buffer + chunk->tail, string, len);
+	chunk->tail += len;
+
+	return chunk->buffer + chunk->tail - len;
+}
 
 /*
 ==============
@@ -1960,6 +2007,7 @@ of a zip file.
 static pack_t *FS_LoadZipFile( char *zipfile, const char *basename, qboolean assetsJKA )
 {
 	fileInPack_t	*buildBuffer;
+	stringBuffer_t	*namesBuffer;
 	pack_t			*pack;
 	unzFile			uf;
 	int				err;
@@ -1983,6 +2031,7 @@ static pack_t *FS_LoadZipFile( char *zipfile, const char *basename, qboolean ass
 	fs_packFiles += gi.number_entry;
 
 	buildBuffer = (struct fileInPack_s *)Z_Malloc((int)((gi.number_entry * sizeof(fileInPack_t))), TAG_FILESYS, qtrue);
+	namesBuffer = FS_NewStringBuffer(gi.number_entry * 16);
 	fs_headerLongs = (int *)Z_Malloc( gi.number_entry * sizeof(int), TAG_FILESYS, qtrue );
 
 	// get the hash table size from the number of files in the zip
@@ -2034,7 +2083,7 @@ static pack_t *FS_LoadZipFile( char *zipfile, const char *basename, qboolean ass
 		}
 		Q_strlwr( filename_inzip );
 		hash = FS_HashFileName(filename_inzip, pack->hashSize);
-		buildBuffer[i].name = CopyString(filename_inzip, TAG_FILESYS);
+		buildBuffer[i].name = FS_AppendStringBuffer(namesBuffer, filename_inzip);
 		// store the file position in the zip
 		buildBuffer[i].pos = unzGetOffset(uf);
 		buildBuffer[i].len = file_info.uncompressed_size;
@@ -2051,6 +2100,7 @@ static pack_t *FS_LoadZipFile( char *zipfile, const char *basename, qboolean ass
 	Z_Free(fs_headerLongs);
 
 	pack->buildBuffer = buildBuffer;
+	pack->namesBuffer = namesBuffer;
 
 	// which versions does this pk3 support?
 
@@ -3132,7 +3182,7 @@ static void FS_AddGameDirectory( const char *path, const char *dir, qboolean ass
 			if (!found) {
 				// server has no interest in the file
 				unzClose(pak->handle);
-				Z_Free((void *)pak->buildBuffer->name);
+				FS_FreeStringBuffer(pak->namesBuffer);
 				Z_Free(pak->buildBuffer);
 				Z_Free(pak);
 				continue;
@@ -3390,7 +3440,7 @@ void FS_Shutdown( qboolean closemfp, qboolean keepModuleFiles ) {
 
 		if ( p->pack ) {
 			unzClose(p->pack->handle);
-			Z_Free( (void *)p->pack->buildBuffer->name );
+			FS_FreeStringBuffer( p->pack->namesBuffer );
 			Z_Free( p->pack->buildBuffer );
 			Z_Free( p->pack );
 		}
