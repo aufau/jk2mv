@@ -215,7 +215,7 @@ typedef struct {
 	int				hashSize;					// hash table size (power of 2)
 	fileInPack_t*	*hashTable;					// hash table
 	fileInPack_t*	buildBuffer;				// buffer with the filenames etc.
-	stringPool_t*	namesBuffer;			// buffer with filenames
+	stringPool_t*	namesBuffer;				// buffer with filenames
 	int				gvc;						// game-version compatibility
 	qboolean		isJKA;						// jka assets
 } pack_t;
@@ -1985,7 +1985,7 @@ static pack_t *FS_LoadZipFile( char *zipfile, const char *basename, qboolean ass
 	fs_packFiles += gi.number_entry;
 
 	buildBuffer = (struct fileInPack_s *)Z_Malloc((int)((gi.number_entry * sizeof(fileInPack_t))), TAG_FILESYS, qtrue);
-	namesBuffer = Z_StringPoolNew(gi.number_entry * 16, TAG_FILESYS);
+	namesBuffer = Z_StringPoolNew(gi.number_entry * 8, TAG_FILESYS);
 	fs_headerLongs = (int *)Z_Malloc( gi.number_entry * sizeof(int), TAG_FILESYS, qtrue );
 
 	// get the hash table size from the number of files in the zip

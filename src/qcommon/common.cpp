@@ -1418,7 +1418,7 @@ const char *Z_StringPoolAdd(stringPool_t * pool, const char * string) {
 
 	while (chunk->size < chunk->tail + len) {
 		if (!chunk->next) {
-			unsigned int size = 2 * MAX(len, chunk->size);
+			unsigned int size = MAX(len, (unsigned int)(1.414 * chunk->size));
 			memtag_t eTag = Z_Tag(chunk);
 			chunk->next = Z_StringPoolNew(size, eTag);
 		}
