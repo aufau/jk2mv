@@ -770,7 +770,7 @@ static joystickAxis_t IN_JoystickAxis(SDL_GameControllerAxis axis) {
 	case SDL_CONTROLLER_AXIS_RIGHTX:		return AXIS_YAW;
 	case SDL_CONTROLLER_AXIS_RIGHTY:		return AXIS_PITCH;
 	case SDL_CONTROLLER_AXIS_TRIGGERLEFT:	return AXIS_UP;
-	case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:	return MAX_JOYSTICK_AXIS;
+	case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:	return AXIS_UP;
 	default:								return MAX_JOYSTICK_AXIS;
 	}
 }
@@ -909,6 +909,11 @@ static void IN_ProcessEvents( int eventTime )
 						value = 127 * e.caxis.value / SDL_JOYSTICK_AXIS_MIN;
 					} else {
 						value = - 127 * e.caxis.value / SDL_JOYSTICK_AXIS_MAX;
+					}
+
+					switch (e.caxis.axis) {
+					case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:	value = - value;	break;
+					case SDL_CONTROLLER_AXIS_LEFTX:			value = - value;	break;
 					}
 
 					Sys_QueEvent( eventTime, SE_JOYSTICK_AXIS, axis, value, 0, NULL );
