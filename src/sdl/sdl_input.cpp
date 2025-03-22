@@ -1536,5 +1536,6 @@ IN_Restart
 void IN_Restart( void )
 {
 	IN_ShutdownJoystick( );
+	IN_ShutdownGameController( );
 	IN_Init( SDL_window );
 }
