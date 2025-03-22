@@ -484,7 +484,7 @@ static void IN_ShutdownGameController( void );
 
 static void IN_InitGameController( void )
 {
-	int	i;
+	int	index;
 	int	total;
 
 	in_gamepad = Cvar_Get("in_gamepad", "1", CVAR_ARCHIVE | CVAR_GLOBAL | CVAR_LATCH);
@@ -528,19 +528,38 @@ static void IN_InitGameController( void )
 	}
 
 	total = SDL_NumJoysticks();
-	for (i = 0; i < total; i++) {
-		char	guid[128];
-		char	*mapping;
-
-		if (SDL_IsGameController(i)) {
-			controller = SDL_GameControllerOpen(i);
-			SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i), guid, sizeof(guid));
-			Com_Printf("GUID: %s\n", guid);
-			mapping = SDL_GameControllerMapping(controller);
-			Com_Printf("Mapping: %s\n", mapping);
-			SDL_free(mapping);
-			break;
+	for (index = 0; index < total; index++) {
+		if (SDL_IsGameController(index)) {
+			controller = SDL_GameControllerOpen(index);
+			if (controller) {
+				break;
+			} else {
+				Com_Printf(S_COLOR_YELLOW "WARNING: Failed to open gamepad %d: %s\n", index, SDL_GetError());
+			}
 		}
+	}
+
+	if (controller) {
+		Com_Printf("Gamepad %d opened\n", index);
+		Com_Printf("Name:             %s\n"  , SDL_GameControllerName(controller));
+	}
+
+	if (controller && com_developer->integer) {
+		char	guid[128];
+
+		SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(index), guid, sizeof(guid));
+
+		Com_Printf("Player:           %d\n"  , SDL_GameControllerGetPlayerIndex(controller));
+		Com_Printf("Vendor:           %.4x\n", SDL_GameControllerGetVendor(controller));
+		Com_Printf("Product:          %.4x\n", SDL_GameControllerGetProduct(controller));
+		Com_Printf("Product Version:  %.4x\n", SDL_GameControllerGetProductVersion(controller));
+		Com_Printf("GUID:             %s\n"  , guid);
+		Com_Printf("Serial Number:    %s\n"  , SDL_GameControllerGetSerial(controller));
+#if 0 // debug
+		char *mapping = SDL_GameControllerMapping(controller);
+		Com_Printf("Mapping:          %s\n", mapping);
+		SDL_free(mapping);
+#endif
 	}
 
 	if (controller) {
