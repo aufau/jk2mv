@@ -908,9 +908,9 @@ static void IN_ProcessEvents( int eventTime )
 
 					// TODO: deadzone; round up
 					if (e.caxis.value < 0 ) {
-						value = 127 * e.caxis.value / SDL_JOYSTICK_AXIS_MIN;
+						value = - 127 * floorf(e.caxis.value) / SDL_JOYSTICK_AXIS_MIN;
 					} else {
-						value = - 127 * e.caxis.value / SDL_JOYSTICK_AXIS_MAX;
+						value = 127 * ceilf(e.caxis.value) / SDL_JOYSTICK_AXIS_MAX;
 					}
 
 					switch (e.caxis.axis) {
