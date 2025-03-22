@@ -20,6 +20,7 @@ static cvar_t *in_joystickThreshold = NULL;
 static cvar_t *in_joystickNo        = NULL;
 static cvar_t *in_joystickUseAnalog = NULL;
 
+static cvar_t *in_gamepad                   = NULL;
 static cvar_t *in_gamepadRSInvertX          = NULL;
 static cvar_t *in_gamepadRSInvertY          = NULL;
 static cvar_t *in_gamepadRSSquareDeadzone   = NULL;
@@ -479,11 +480,14 @@ static const char * IN_PadButtonUIName(SDL_GameControllerType type, SDL_GameCont
 #define GAMEPAD_DEF_INNER_DEADZONE 0.1
 #define GAMEPAD_DEF_OUTER_DEADZONE 1.0
 
+static void IN_ShutdownGameController( void );
+
 static void IN_InitGameController( void )
 {
 	int	i;
 	int	total;
 
+	in_gamepad = Cvar_Get("in_gamepad", "1", CVAR_ARCHIVE | CVAR_GLOBAL | CVAR_LATCH);
 	// RS = Right Stick
 	in_gamepadRSInvertX = Cvar_Get("in_gamepadRSInvertX", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSInvertY = Cvar_Get("in_gamepadRSInvertY", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
@@ -508,6 +512,11 @@ static void IN_InitGameController( void )
 	in_gamepadRTInnerDeadzone->modified = qtrue; // validate next frame
 	in_gamepadRTOuterDeadzone = Cvar_Get("in_gamepadRTOuterDeadzone", XSTR(GAMEPAD_DEF_OUTER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRTOuterDeadzone->modified = qtrue; // validate next frame
+
+	if (!in_gamepad->integer) {
+		IN_ShutdownGameController();
+		return;
+	}
 
 	if (!SDL_WasInit(SDL_INIT_GAMECONTROLLER)) {
 		Com_DPrintf("Calling SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER)...\n");
