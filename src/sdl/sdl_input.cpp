@@ -19,6 +19,9 @@ static cvar_t *in_joystickThreshold = NULL;
 static cvar_t *in_joystickNo        = NULL;
 static cvar_t *in_joystickUseAnalog = NULL;
 
+static cvar_t *in_gamepadRSInvertX    = NULL;
+static cvar_t *in_gamepadRSInvertY    = NULL;
+
 static SDL_Window *SDL_window = NULL;
 
 extern void GLimp_SaveWindowPosition( void );
@@ -460,6 +463,9 @@ static void IN_InitGameController( void )
 {
 	int	i;
 	int	total;
+
+	in_gamepadRSInvertX = Cvar_Get( "in_gamepadRSInvertX", "1", CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadRSInvertY = Cvar_Get( "in_gamepadRSInvertY", "1", CVAR_ARCHIVE | CVAR_GLOBAL);
 
 	if (!SDL_WasInit(SDL_INIT_GAMECONTROLLER)) {
 		Com_DPrintf("Calling SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER)...\n");
@@ -906,7 +912,6 @@ static void IN_ProcessEvents( int eventTime )
 
 					axis = IN_JoystickAxis((SDL_GameControllerAxis)e.caxis.axis);
 
-					// TODO: deadzone; round up
 					if (e.caxis.value < 0 ) {
 						value = - 127 * floorf(e.caxis.value) / SDL_JOYSTICK_AXIS_MIN;
 					} else {
@@ -914,8 +919,20 @@ static void IN_ProcessEvents( int eventTime )
 					}
 
 					switch (e.caxis.axis) {
-					case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:	value = - value;	break;
-					case SDL_CONTROLLER_AXIS_LEFTY:			value = - value;	break;
+					case SDL_CONTROLLER_AXIS_TRIGGERLEFT:	value = - value;	break;
+					case SDL_CONTROLLER_AXIS_LEFTY:
+						value = - value;
+						break;
+					case SDL_CONTROLLER_AXIS_RIGHTX:
+						if (in_gamepadRSInvertX->integer) {
+							value = - value;
+						}
+						break;
+					case SDL_CONTROLLER_AXIS_RIGHTY:
+						if (!in_gamepadRSInvertY->integer) {
+							value = - value;
+						}
+						break;
 					}
 
 					if (abs(value) < 10) {
