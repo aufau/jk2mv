@@ -915,7 +915,7 @@ static void IN_ProcessEvents( int eventTime )
 
 					switch (e.caxis.axis) {
 					case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:	value = - value;	break;
-					case SDL_CONTROLLER_AXIS_LEFTX:			value = - value;	break;
+					case SDL_CONTROLLER_AXIS_LEFTY:			value = - value;	break;
 					}
 
 					Sys_QueEvent( eventTime, SE_JOYSTICK_AXIS, axis, value, 0, NULL );
