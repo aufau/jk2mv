@@ -476,12 +476,14 @@ static void IN_InitGameController( void )
 		char	*mapping;
 		SDL_GameController *controller;
 
-		controller = SDL_GameControllerOpen(i);
-		SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i), guid, sizeof(guid));
-		Com_Printf("GUID: %s\n", guid);
-		mapping = SDL_GameControllerMapping(controller);
-		Com_Printf("Mapping: %s\n", mapping);
-		SDL_free(mapping);
+		if (SDL_IsGameController(i)) {
+			controller = SDL_GameControllerOpen(i);
+			SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i), guid, sizeof(guid));
+			Com_Printf("GUID: %s\n", guid);
+			mapping = SDL_GameControllerMapping(controller);
+			Com_Printf("Mapping: %s\n", mapping);
+			SDL_free(mapping);
+		}
 	}
 }
 
