@@ -1239,6 +1239,20 @@ static void IN_ShutdownJoystick( void )
 	SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
 }
 
+/*
+===============
+IN_ShutdownGameController
+===============
+*/
+static void IN_ShutdownGameController( void )
+{
+	if (!SDL_WasInit(SDL_INIT_GAMECONTROLLER)) {
+		return;
+	}
+
+	SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER);
+}
+
 void IN_Shutdown( void ) {
 	SDL_StopTextInput( );
 
@@ -1246,6 +1260,7 @@ void IN_Shutdown( void ) {
 	mouseAvailable = qfalse;
 
 	IN_ShutdownJoystick( );
+	IN_ShutdownGameController( );
 
 	SDL_window = NULL;
 }
