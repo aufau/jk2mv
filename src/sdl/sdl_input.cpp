@@ -1513,6 +1513,11 @@ static void IN_ShutdownGameController( void )
 		return;
 	}
 
+	if (controller) {
+		SDL_GameControllerClose(controller);
+		controller = NULL;
+	}
+
 	SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER);
 }
 
