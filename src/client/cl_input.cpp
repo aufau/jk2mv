@@ -508,6 +508,9 @@ void CL_JoystickMove( usercmd_t *cmd ) {
 		cmd->forwardmove = ClampChar( cmd->forwardmove + cl.joystickAxis[AXIS_FORWARD] );
 	}
 
+	cl.viewangles[YAW] += anglespeed * cl.joystickAxis[AXIS_YAW];
+	cl.viewangles[PITCH] += anglespeed * cl.joystickAxis[AXIS_PITCH];
+
 	cmd->upmove = ClampChar( cmd->upmove + cl.joystickAxis[AXIS_UP] );
 }
 
