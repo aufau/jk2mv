@@ -915,6 +915,15 @@ static void IN_ProcessEvents( int eventTime )
 				}
 				break;
 
+			case SDL_CONTROLLERBUTTONDOWN:
+			case SDL_CONTROLLERBUTTONUP:
+			{
+				qboolean down = (e.cbutton.state == SDL_PRESSED) ? qtrue : qfalse;
+				key = (fakeAscii_t)(A_JOY0 + e.cbutton.button);
+				Sys_QueEvent(eventTime, SE_KEY, key, down, 0, NULL);
+			}
+			break;
+
 			case SDL_CONTROLLERDEVICEADDED:
 			case SDL_CONTROLLERDEVICEREMOVED:
 			case SDL_CONTROLLERDEVICEREMAPPED:
