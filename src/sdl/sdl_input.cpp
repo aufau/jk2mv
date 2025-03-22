@@ -918,6 +918,10 @@ static void IN_ProcessEvents( int eventTime )
 					case SDL_CONTROLLER_AXIS_LEFTY:			value = - value;	break;
 					}
 
+					if (abs(value) < 10) {
+						value = 0;
+					}
+
 					Sys_QueEvent( eventTime, SE_JOYSTICK_AXIS, axis, value, 0, NULL );
 				}
 				break;
