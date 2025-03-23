@@ -1590,10 +1590,6 @@ static void IN_PadMove3D(int eventTime)
 	float x, y;
 	float inner, outer;
 
-	if (!controller) {
-		return;
-	}
-
 	SDL_GameControllerUpdate();
 
 	x = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_LEFTX);
@@ -1625,6 +1621,11 @@ static void IN_PadMove3D(int eventTime)
 
 static void IN_PadMove(int eventTime)
 {
+	if (!controller)
+		return;
+	if (!SDL_GameControllerGetAttached(controller))
+		return;
+
 	int keycatcher = Key_GetCatcher();
 
 	if (keycatcher & (KEYCATCH_UI | KEYCATCH_CGAME)) {
