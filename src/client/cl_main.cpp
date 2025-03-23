@@ -2886,6 +2886,7 @@ void CL_Init( void ) {
 	cl_joystickAnalogMove = Cvar_Get ("cl_joystickAnalogMove", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	cl_joystickRunThreshold = Cvar_Get ("cl_joystickRunThreshold", "0.6", CVAR_ARCHIVE | CVAR_GLOBAL);
 	cl_joystickWalkThreshold = Cvar_Get ("cl_joystickWalkThreshold", "0.1", CVAR_ARCHIVE | CVAR_GLOBAL);
+	cl_joystickSensitivity = Cvar_Get ("cl_joystickSensitivity", "5", CVAR_ARCHIVE | CVAR_GLOBAL);
 	cl_sensitivity = Cvar_Get("sensitivity", "5", CVAR_ARCHIVE | CVAR_GLOBAL);
 	cl_mouseAccel = Cvar_Get("cl_mouseAccel", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	cl_freelook = Cvar_Get("cl_freelook", "1", CVAR_ARCHIVE | CVAR_GLOBAL);

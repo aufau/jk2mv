@@ -433,6 +433,7 @@ extern	cvar_t	*cl_autoWalkButton;
 extern	cvar_t	*cl_joystickAnalogMove;
 extern	cvar_t	*cl_joystickRunThreshold;
 extern	cvar_t	*cl_joystickWalkThreshold;
+extern	cvar_t	*cl_joystickSensitivity;
 extern	cvar_t	*cl_anglespeedkey;
 
 extern	cvar_t	*cl_sensitivity;

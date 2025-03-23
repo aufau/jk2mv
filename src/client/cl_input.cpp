@@ -372,6 +372,7 @@ cvar_t	*cl_autoWalkButton;
 cvar_t	*cl_joystickAnalogMove;
 cvar_t	*cl_joystickWalkThreshold;
 cvar_t	*cl_joystickRunThreshold;
+cvar_t	*cl_joystickSensitivity;
 
 cvar_t	*cl_anglespeedkey;
 
@@ -532,9 +533,9 @@ void CL_JoystickMove( usercmd_t *cmd ) {
 	float	anglespeed;
 
 	if ( in_speed.active ) {
-		anglespeed = 0.001 * cls.frametime * cl_anglespeedkey->value;
+		anglespeed = 0.0005 * cls.frametime * cl_joystickSensitivity->value * cl_anglespeedkey->value;
 	} else {
-		anglespeed = 0.001 * cls.frametime;
+		anglespeed = 0.0005 * cls.frametime * cl_joystickSensitivity->value;
 	}
 
 	if ( cl_joystickAnalogMove->integer ) {
