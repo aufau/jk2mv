@@ -1399,7 +1399,7 @@ static void IN_PadDeadzoneCircular(float *inX, float *inY, float inner, float ou
 	*inY = Com_Clamp(-1.0f, 1.0f, y);
 }
 
-static void IN_PadDeadzone(float *inX, float *inY, float inner, float outer, qboolean square)
+static void IN_PadDeadzoneStick(float *inX, float *inY, float inner, float outer, qboolean square)
 {
 	if (square) {
 		// square deadzone, independent on each axis
@@ -1526,7 +1526,7 @@ static void IN_PadMoveUILS(int eventTime)
 	float inner, outer;
 
 	IN_PadGetLSDeadzone(&inner, &outer);
-	IN_PadDeadzone(&x, &y, inner, outer, qtrue);
+	IN_PadDeadzoneStick(&x, &y, inner, outer, qtrue);
 
 	in_pad.residual_dx += 0.2f * x * deltaTime * in_gamepadUISensitivity->value;
 	in_pad.residual_dy += 0.2f * y * deltaTime * in_gamepadUISensitivity->value;
@@ -1564,7 +1564,7 @@ static void IN_PadMoveUIRS(int eventTime)
 	float inner, outer;
 
 	IN_PadGetRSDeadzone(&inner, &outer);
-	IN_PadDeadzone(&x, &y, inner, outer, qtrue);
+	IN_PadDeadzoneStick(&x, &y, inner, outer, qtrue);
 
 	const float activeThreshold = 0.7f;
 	const float passiveThreshold = 0.4f;
@@ -1624,7 +1624,7 @@ static void IN_PadMoveSticks(int eventTime)
 	x = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_LEFTX);
 	y = - IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_LEFTY);
 	IN_PadGetLSDeadzone(&inner, &outer);
-	IN_PadDeadzone(&x, &y, inner, outer, (qboolean)!!in_gamepadLSSquareDeadzone->integer);
+	IN_PadDeadzoneStick(&x, &y, inner, outer, (qboolean)!!in_gamepadLSSquareDeadzone->integer);
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_SIDE   , roundf(127 * x), 0, NULL);
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_FORWARD, roundf(127 * y), 0, NULL);
 
@@ -1635,7 +1635,8 @@ static void IN_PadMoveSticks(int eventTime)
 	if (in_gamepadRSInvertY->integer)
 		y = -y;
 	IN_PadGetRSDeadzone(&inner, &outer);
-	IN_PadDeadzone(&x, &y, inner, outer, (qboolean)!!in_gamepadLSSquareDeadzone->integer);
+	IN_PadDeadzoneStick(&x, &y, inner, outer, (qboolean)!!in_gamepadLSSquareDeadzone->integer);
+
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_YAW  , roundf(127 * x), 0, NULL);
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_PITCH, roundf(127 * y), 0, NULL);
 }
