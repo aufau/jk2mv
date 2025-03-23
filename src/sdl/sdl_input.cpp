@@ -1017,6 +1017,10 @@ static void IN_ProcessEvents( int eventTime )
 					switch (e.cbutton.button) {
 					case SDL_CONTROLLER_BUTTON_A         : key = A_MOUSE1; break;
 					case SDL_CONTROLLER_BUTTON_TOUCHPAD  : key = A_MOUSE1; break;
+					case SDL_CONTROLLER_BUTTON_DPAD_UP   : key = A_CURSOR_UP; break;
+					case SDL_CONTROLLER_BUTTON_DPAD_LEFT : key = A_CURSOR_LEFT; break;
+					case SDL_CONTROLLER_BUTTON_DPAD_DOWN : key = A_CURSOR_DOWN; break;
+					case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: key = A_CURSOR_RIGHT; break;
 					default: key = A_NULL; break;
 					}
 
@@ -1473,7 +1477,7 @@ static void IN_PadGetRTDeadzone(float *innerp, float *outerp)
 	*outerp = outer;
 }
 
-static void IN_PadMoveUI(int eventTime)
+static void IN_PadMoveUILS(int eventTime)
 {
 	static int lastEventTime;
 	static float residual_dx, residual_dy;
@@ -1503,6 +1507,76 @@ static void IN_PadMoveUI(int eventTime)
 		residual_dx -= dx;
 		residual_dy -= dy;
 	}
+}
+
+static void IN_PadMoveUIRS(int eventTime)
+{
+	// Left Stick sends mouse wheel events that repeat every 50ms with
+	// 200ms initial delay
+
+	// 0 is special value meaning RS was released since last event
+	static int nextXEventTime;
+	static int nextYEventTime;
+
+	if (nextXEventTime > eventTime + 200)
+		nextXEventTime = 0;
+
+	qboolean xEventAllowed = (qboolean)(eventTime > nextXEventTime);
+
+	if (nextYEventTime > eventTime + 200)
+		nextYEventTime = 0;
+
+	qboolean yEventAllowed = (qboolean)(eventTime > nextYEventTime);
+
+	float x = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_RIGHTX);
+	float y = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_RIGHTY);
+	float inner, outer;
+
+	IN_PadGetRSDeadzone(&inner, &outer);
+	IN_PadDeadzone(&x, &y, inner, outer, qtrue);
+
+	const float activeThreshold = 0.7f;
+	const float passiveThreshold = 0.4f;
+
+	if (xEventAllowed && fabsf(y) < passiveThreshold) {
+		qboolean xEvent = qfalse;
+		if (x < -activeThreshold) {
+			xEvent = qtrue;
+			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELDOWN, qtrue, 0, NULL);
+		}
+		if (x >  activeThreshold) {
+			xEvent = qtrue;
+			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELUP, qtrue, 0, NULL);
+		}
+		if (xEvent) {
+			nextXEventTime = nextXEventTime ? eventTime + 50 : eventTime + 200;
+		} else {
+			nextXEventTime = 0;
+		}
+	}
+
+	if (yEventAllowed && fabsf(x) < passiveThreshold) {
+		qboolean yEvent = qfalse;
+		if (y < -activeThreshold) {
+			yEvent = qtrue;
+			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELUP, qtrue, 0, NULL);
+		}
+		if (y >  activeThreshold) {
+			yEvent = qtrue;
+			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELDOWN, qtrue, 0, NULL);
+		}
+		if (yEvent) {
+			nextYEventTime = nextYEventTime ? eventTime + 50 : eventTime + 200;
+		} else {
+			nextYEventTime = 0;
+		}
+	}
+}
+
+static void IN_PadMoveUI(int eventTime)
+{
+	IN_PadMoveUILS(eventTime);
+	IN_PadMoveUIRS(eventTime);
 }
 
 static void IN_PadMove3D(int eventTime)
