@@ -40,6 +40,7 @@ static cvar_t *in_gamepadUISensitivity      = NULL;
 static cvar_t *in_gamepadRSInvertX          = NULL;
 static cvar_t *in_gamepadRSInvertY          = NULL;
 static cvar_t *in_gamepadRSAccel            = NULL;
+static cvar_t *in_gamepadRSAccelCurve       = NULL;
 static cvar_t *in_gamepadRSSquareDeadzone   = NULL;
 static cvar_t *in_gamepadRSInnerDeadzone    = NULL;
 static cvar_t *in_gamepadRSOuterDeadzone    = NULL;
@@ -518,6 +519,7 @@ static void IN_InitGameController( void )
 	in_gamepadRSInvertX = Cvar_Get("in_gamepadRSInvertX", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSInvertY = Cvar_Get("in_gamepadRSInvertY", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSAccel = Cvar_Get("in_gamepadRSAccel", "1", CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadRSAccelCurve = Cvar_Get("in_gamepadRSAccelCurve", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSSquareDeadzone = Cvar_Get("in_gamepadRSSquareDeadzone", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSInnerDeadzone = Cvar_Get("in_gamepadRSInnerDeadzone", XSTR(GAMEPAD_DEF_INNER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSInnerDeadzone->modified = qtrue; // validate next frame
@@ -1535,9 +1537,9 @@ static void IN_PadGetRTDeadzone(float *innerp, float *outerp)
 	*outerp = outer;
 }
 
-static void IN_PadShapeStick(float *inX, float *inY, float accel)
+static void IN_PadShapeStick(float *inX, float *inY, int curve, float accel)
 {
-	// Apply exponential curve to axis tilt value. This must be called
+	// Apply acceleration curve to axis tilt value. This must be called
 	// on the square input, after deadzonning.
 
 	if (accel == 1.0f)
@@ -1546,19 +1548,49 @@ static void IN_PadShapeStick(float *inX, float *inY, float accel)
 	float x = *inX;
 	float y = *inY;
 
-	accel = Com_Clamp(0.1f, 10.0f, accel);
 	float tilt = MAX(fabsf(x), fabsf(y)); // in [0,1] range
 	if (tilt == 0)
 		return;
-	float scale = powf(tilt, accel) / tilt;
 
-	// just in case...
-	if (!isnormal(scale))
-		scale = 0.0f;
+	// each curve must normalize acceleration value so that for any of
+	// them [1, 10] range is reasonable because there is only one cvar
+	// This is for the sake of unified GUI controls
+	float t = tilt;
+	float A, newTilt;
+
+	// normalization process:
+	// a) when accel == 1 it is hardly noticeable (gui should not go below 1)
+	// b) for accel = 10 max deviation t - f(t) is less than 0.6
+	// c) accel 1, 2, 3 ... are distinct and usable
+	switch (curve) {
+	case 1: // polynomial curve
+		// f(t) = t^A; f(0) = 0; f(1) = 1
+		A = Com_Clamp(-10, 10, accel);
+		A = 1.0f + 0.6f * A; // A in [1,7] range
+		newTilt = powf(t, A);
+		break;
+	case 2: // exponential curve
+		// f(x) = (A^t - 1)/(A - 1); f(0) = 0; f(1) = 1
+		A = Com_Clamp(0.1f, 10.0f, accel);
+		A = 1.0f + A * A * A; // A in [1,1001] range
+		newTilt = (powf(A, t) - 1) / (A - 1);
+		break;
+	default:
+		newTilt = tilt;
+		break;
+	}
+
+	x = newTilt * x / tilt;
+	if (!isnormal(x))
+		x = 0.0f;
+
+	y = newTilt * y / tilt;
+	if (!isnormal(y))
+		y = 0.0f;
 
 	// clamp any numerical errors
-	*inX = Com_Clamp(-1.0f, 1.0f, scale * x);
-	*inY = Com_Clamp(-1.0f, 1.0f, scale * y);
+	*inX = Com_Clamp(-1.0f, 1.0f, x);
+	*inY = Com_Clamp(-1.0f, 1.0f, y);
 }
 
 static void IN_PadMoveUILS(int eventTime)
@@ -1685,7 +1717,7 @@ static void IN_PadMoveSticks(int eventTime)
 		y = -y;
 	IN_PadGetRSDeadzone(&inner, &outer);
 	IN_PadDeadzoneStick(&x, &y, inner, outer, (qboolean)!!in_gamepadRSSquareDeadzone->integer);
-	IN_PadShapeStick(&x, &y, in_gamepadRSAccel->value);
+	IN_PadShapeStick(&x, &y, in_gamepadRSAccelCurve->integer, in_gamepadRSAccel->value);
 
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_YAW  , roundf(127 * x), 0, NULL);
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_PITCH, roundf(127 * y), 0, NULL);
