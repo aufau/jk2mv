@@ -4,10 +4,22 @@
 #include "../client/client.h"
 #include "../sys/sys_local.h"
 
+struct in_gamepad_s {
+	SDL_GameController *controller;
+	qboolean rtDown;
+	qboolean ltDown;
+	float residual_dx;
+	float residual_dy;
+	int lastLSEventTime;
+	int nextRSXEventTime;
+	int nextRSYEventTime;
+};
+
+struct in_gamepad_s in_pad;
+
 static cvar_t *in_keyboardDebug     = NULL;
 
 static SDL_Joystick *stick = NULL;
-static SDL_GameController *controller = NULL;
 
 static qboolean mouseAvailable = qfalse;
 static qboolean mouseActive = qfalse;
@@ -489,6 +501,7 @@ static const char * IN_PadButtonUIName(SDL_GameControllerType type, SDL_GameCont
 #define GAMEPAD_DEF_OUTER_DEADZONE 1.0
 
 static void IN_OpenGameController( int index );
+static void IN_CloseGameController( void );
 static void IN_ShutdownGameController( void );
 
 static void IN_InitGameController( void )
@@ -539,12 +552,11 @@ static void IN_InitGameController( void )
 		}
 		Com_DPrintf("SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) passed.\n");
 	} else {
-		if (controller) {
-			SDL_GameControllerClose(controller);
+		if (in_pad.controller) {
+			IN_CloseGameController();
 		}
 	}
 
-	controller = NULL;
 	total = SDL_NumJoysticks();
 	Com_DPrintf("%d possible gamepads\n", total);
 	padIndex = 0;
@@ -559,14 +571,21 @@ static void IN_InitGameController( void )
 	}
 }
 
+static void IN_CloseGameController( void )
+{
+	SDL_GameControllerClose(in_pad.controller);
+	memset(&in_pad, 0, sizeof(in_pad));
+}
+
 static void IN_OpenGameController( int index )
 {
-	controller = SDL_GameControllerOpen(index);
-	if (!controller) {
+	in_pad.controller = SDL_GameControllerOpen(index);
+	if (!in_pad.controller) {
 		Com_Printf(S_COLOR_YELLOW "WARNING: Failed to open gamepad %d: %s\n", index, SDL_GetError());
 		return;
 	}
 
+	SDL_GameController *controller = in_pad.controller;
 	char	guid[128];
 
 	SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(index), guid, sizeof(guid));
@@ -1039,12 +1058,12 @@ static void IN_ProcessEvents( int eventTime )
 			break;
 
 			case SDL_CONTROLLERDEVICEADDED:
-				if (controller && !SDL_GameControllerGetAttached(controller)) {
+				if (in_pad.controller && !SDL_GameControllerGetAttached(in_pad.controller)) {
 					char	guid[128];
 
 					SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(e.cdevice.which), guid, sizeof(guid));
 					if (!strcmp(in_gamepadGUID->string, guid)) {
-						SDL_GameControllerClose(controller);
+						IN_CloseGameController();
 						IN_OpenGameController(e.cdevice.which);
 					}
 				}
@@ -1401,7 +1420,7 @@ or [0.0,1.0] for trigger axes
 */
 static float IN_SDLControllerGetAxis(SDL_GameControllerAxis axis)
 {
-	float value = SDL_GameControllerGetAxis(controller, axis);
+	float value = SDL_GameControllerGetAxis(in_pad.controller, axis);
 
 	if (value >= 0) {
 		return value / SDL_JOYSTICK_AXIS_MAX;
@@ -1496,11 +1515,8 @@ static void IN_PadGetRTDeadzone(float *innerp, float *outerp)
 
 static void IN_PadMoveUILS(int eventTime)
 {
-	static int lastEventTime;
-	static float residual_dx, residual_dy;
-
-	int deltaTime = eventTime - lastEventTime;
-	lastEventTime = eventTime;
+	int deltaTime = eventTime - in_pad.lastLSEventTime;
+	in_pad.lastLSEventTime = eventTime;
 	if (deltaTime < 0 || deltaTime > 1000) {
 		return;
 	}
@@ -1512,17 +1528,17 @@ static void IN_PadMoveUILS(int eventTime)
 	IN_PadGetLSDeadzone(&inner, &outer);
 	IN_PadDeadzone(&x, &y, inner, outer, qtrue);
 
-	residual_dx += 0.2f * x * deltaTime * in_gamepadUISensitivity->value;
-	residual_dy += 0.2f * y * deltaTime * in_gamepadUISensitivity->value;
+	in_pad.residual_dx += 0.2f * x * deltaTime * in_gamepadUISensitivity->value;
+	in_pad.residual_dy += 0.2f * y * deltaTime * in_gamepadUISensitivity->value;
 
-	int dx = (int)residual_dx;
-	int dy = (int)residual_dy;
+	int dx = (int)in_pad.residual_dx;
+	int dy = (int)in_pad.residual_dy;
 
 	if (dx || dy)
 	{
 		Sys_QueEvent(eventTime, SE_MOUSE, dx, dy, 0, NULL);
-		residual_dx -= dx;
-		residual_dy -= dy;
+		in_pad.residual_dx -= dx;
+		in_pad.residual_dy -= dy;
 	}
 }
 
@@ -1532,18 +1548,16 @@ static void IN_PadMoveUIRS(int eventTime)
 	// 200ms initial delay
 
 	// 0 is special value meaning RS was released since last event
-	static int nextXEventTime;
-	static int nextYEventTime;
 
-	if (nextXEventTime > eventTime + 200)
-		nextXEventTime = 0;
+	if (in_pad.nextRSXEventTime > eventTime + 200)
+		in_pad.nextRSXEventTime = 0;
 
-	qboolean xEventAllowed = (qboolean)(eventTime > nextXEventTime);
+	qboolean xEventAllowed = (qboolean)(eventTime > in_pad.nextRSXEventTime);
 
-	if (nextYEventTime > eventTime + 200)
-		nextYEventTime = 0;
+	if (in_pad.nextRSYEventTime > eventTime + 200)
+		in_pad.nextRSYEventTime = 0;
 
-	qboolean yEventAllowed = (qboolean)(eventTime > nextYEventTime);
+	qboolean yEventAllowed = (qboolean)(eventTime > in_pad.nextRSYEventTime);
 
 	float x = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_RIGHTX);
 	float y = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_RIGHTY);
@@ -1566,9 +1580,9 @@ static void IN_PadMoveUIRS(int eventTime)
 			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELUP, qtrue, 0, NULL);
 		}
 		if (xEvent) {
-			nextXEventTime = nextXEventTime ? eventTime + 50 : eventTime + 200;
+			in_pad.nextRSXEventTime = in_pad.nextRSXEventTime ? eventTime + 50 : eventTime + 200;
 		} else {
-			nextXEventTime = 0;
+			in_pad.nextRSXEventTime = 0;
 		}
 	}
 
@@ -1583,9 +1597,9 @@ static void IN_PadMoveUIRS(int eventTime)
 			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELDOWN, qtrue, 0, NULL);
 		}
 		if (yEvent) {
-			nextYEventTime = nextYEventTime ? eventTime + 50 : eventTime + 200;
+			in_pad.nextRSYEventTime = in_pad.nextRSYEventTime ? eventTime + 50 : eventTime + 200;
 		} else {
-			nextYEventTime = 0;
+			in_pad.nextRSYEventTime = 0;
 		}
 	}
 }
@@ -1634,30 +1648,27 @@ static void IN_PadMove3D(int eventTime)
 	IN_PadGetLTDeadzone(&inner, &outer);
 	IN_PadDeadzoneAxis(&lt, inner, outer);
 
-	static qboolean rtDown = qfalse;
-	static qboolean ltDown = qfalse;
-
 	switch (in_gamepadTriggersAxis->integer) {
 	case 0: // triggers act as A_JOY30 and A_JOY31 buttons
 		if (rt > 0.0f) {
-			if (!rtDown) {
-				rtDown = qtrue;
+			if (!in_pad.rtDown) {
+				in_pad.rtDown = qtrue;
 				Sys_QueEvent(eventTime, SE_KEY, A_JOY30, qtrue, 0, NULL);
 			}
 		} else {
-			if (rtDown) {
-				rtDown = qfalse;
+			if (in_pad.rtDown) {
+				in_pad.rtDown = qfalse;
 				Sys_QueEvent(eventTime, SE_KEY, A_JOY30, qfalse, 0, NULL);
 			}
 		}
 		if (lt > 0.0f) {
-			if (!ltDown) {
-				ltDown = qtrue;
+			if (!in_pad.ltDown) {
+				in_pad.ltDown = qtrue;
 				Sys_QueEvent(eventTime, SE_KEY, A_JOY31, qtrue, 0, NULL);
 			}
 		} else {
-			if (ltDown) {
-				ltDown = qfalse;
+			if (in_pad.ltDown) {
+				in_pad.ltDown = qfalse;
 				Sys_QueEvent(eventTime, SE_KEY, A_JOY31, qfalse, 0, NULL);
 			}
 		}
@@ -1679,9 +1690,9 @@ static void IN_PadMove3D(int eventTime)
 
 static void IN_PadMove(int eventTime)
 {
-	if (!controller)
+	if (!in_pad.controller)
 		return;
-	if (!SDL_GameControllerGetAttached(controller))
+	if (!SDL_GameControllerGetAttached(in_pad.controller))
 		return;
 
 	int keycatcher = Key_GetCatcher();
@@ -1764,9 +1775,8 @@ static void IN_ShutdownGameController( void )
 		return;
 	}
 
-	if (controller) {
-		SDL_GameControllerClose(controller);
-		controller = NULL;
+	if (in_pad.controller) {
+		IN_CloseGameController();
 	}
 
 	SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER);
