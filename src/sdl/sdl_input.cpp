@@ -525,8 +525,13 @@ static void IN_InitGameController( void )
 			return;
 		}
 		Com_DPrintf("SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) passed.\n");
+	} else {
+		if (controller) {
+			SDL_GameControllerClose(controller);
+		}
 	}
 
+	controller = NULL;
 	total = SDL_NumJoysticks();
 	for (index = 0; index < total; index++) {
 		if (SDL_IsGameController(index)) {
