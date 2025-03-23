@@ -22,6 +22,8 @@ static cvar_t *in_joystickUseAnalog = NULL;
 
 static cvar_t *in_gamepad                   = NULL;
 static cvar_t *in_gamepadNo                 = NULL;
+static cvar_t *in_gamepadUIHack             = NULL;
+static cvar_t *in_gamepadUISensitivity      = NULL;
 static cvar_t *in_gamepadRSInvertX          = NULL;
 static cvar_t *in_gamepadRSInvertY          = NULL;
 static cvar_t *in_gamepadRSSquareDeadzone   = NULL;
@@ -34,6 +36,7 @@ static cvar_t *in_gamepadLTInnerDeadzone    = NULL;
 static cvar_t *in_gamepadLTOuterDeadzone    = NULL;
 static cvar_t *in_gamepadRTInnerDeadzone    = NULL;
 static cvar_t *in_gamepadRTOuterDeadzone    = NULL;
+
 
 static SDL_Window *SDL_window = NULL;
 
@@ -492,6 +495,8 @@ static void IN_InitGameController( void )
 
 	in_gamepad = Cvar_Get("in_gamepad", "1", CVAR_ARCHIVE | CVAR_GLOBAL | CVAR_LATCH);
 	in_gamepadNo = Cvar_Get("in_gamepadNo", "0", CVAR_TEMP | CVAR_LATCH);
+	in_gamepadUIHack = Cvar_Get("in_gamepadUIHack", "1", CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadUISensitivity = Cvar_Get("in_gamepadUISensitivity", "5", CVAR_ARCHIVE | CVAR_GLOBAL);
 	// RS = Right Stick
 	in_gamepadRSInvertX = Cvar_Get("in_gamepadRSInvertX", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSInvertY = Cvar_Get("in_gamepadRSInvertY", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
@@ -990,8 +995,35 @@ static void IN_ProcessEvents( int eventTime )
 			case SDL_CONTROLLERBUTTONUP:
 			{
 				qboolean down = (e.cbutton.state == SDL_PRESSED) ? qtrue : qfalse;
-				key = (fakeAscii_t)(A_JOY0 + e.cbutton.button);
-				Sys_QueEvent(eventTime, SE_KEY, key, down, 0, NULL);
+
+				// send A_JOY key first even when in_gamepadUIHack is
+				// enabled. Otherwise intercepted JOY keys can't be
+				// bound in menu
+				if (e.cbutton.button > SDL_CONTROLLER_BUTTON_INVALID &&
+					e.cbutton.button < SDL_CONTROLLER_BUTTON_MAX)
+				{
+					key = (fakeAscii_t)(A_JOY0 + e.cbutton.button);
+					Sys_QueEvent(eventTime, SE_KEY, key, down, 0, NULL);
+				}
+
+				if (e.cbutton.button == SDL_CONTROLLER_BUTTON_START)
+				{
+					Sys_QueEvent(eventTime, SE_KEY, A_ESCAPE, down, 0, NULL);
+				}
+
+				if (in_gamepadUIHack->integer &&
+					Key_GetCatcher() & (KEYCATCH_UI | KEYCATCH_CGAME))
+				{
+					switch (e.cbutton.button) {
+					case SDL_CONTROLLER_BUTTON_A         : key = A_MOUSE1; break;
+					case SDL_CONTROLLER_BUTTON_TOUCHPAD  : key = A_MOUSE1; break;
+					default: key = A_NULL; break;
+					}
+
+					if (key != A_NULL) {
+						Sys_QueEvent(eventTime, SE_KEY, key, down, 0, NULL);
+					}
+				}
 			}
 			break;
 
@@ -1441,7 +1473,39 @@ static void IN_PadGetRTDeadzone(float *innerp, float *outerp)
 	*outerp = outer;
 }
 
-static void IN_PadMove(int eventTime)
+static void IN_PadMoveUI(int eventTime)
+{
+	static int lastEventTime;
+	static float residual_dx, residual_dy;
+
+	int deltaTime = eventTime - lastEventTime;
+	lastEventTime = eventTime;
+	if (deltaTime < 0 || deltaTime > 1000) {
+		return;
+	}
+
+	float x = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_LEFTX);
+	float y = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_LEFTY);
+	float inner, outer;
+
+	IN_PadGetLSDeadzone(&inner, &outer);
+	IN_PadDeadzone(&x, &y, inner, outer, qtrue);
+
+	residual_dx += 0.2f * x * deltaTime * in_gamepadUISensitivity->value;
+	residual_dy += 0.2f * y * deltaTime * in_gamepadUISensitivity->value;
+
+	int dx = (int)residual_dx;
+	int dy = (int)residual_dy;
+
+	if (dx || dy)
+	{
+		Sys_QueEvent(eventTime, SE_MOUSE, dx, dy, 0, NULL);
+		residual_dx -= dx;
+		residual_dy -= dy;
+	}
+}
+
+static void IN_PadMove3D(int eventTime)
 {
 	// Process gamepad analogue inputs:
 	// 1. Filtering - not implemented
@@ -1483,6 +1547,17 @@ static void IN_PadMove(int eventTime)
 	IN_PadGetLTDeadzone(&inner, &outer);
 	IN_PadDeadzoneAxis(&y, inner, outer);
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_UP, roundf(127 * (x - y)), 0, NULL);
+}
+
+static void IN_PadMove(int eventTime)
+{
+	int keycatcher = Key_GetCatcher();
+
+	if (keycatcher & (KEYCATCH_UI | KEYCATCH_CGAME)) {
+		IN_PadMoveUI(eventTime);
+	} else {
+		IN_PadMove3D(eventTime);
+	}
 }
 
 void IN_Frame (void) {
