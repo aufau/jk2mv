@@ -1880,8 +1880,8 @@ void IN_Shutdown( void ) {
 	IN_DeactivateMouse( );
 	mouseAvailable = qfalse;
 
+	IN_ShutdownGameController();
 	IN_ShutdownJoystick( );
-	IN_ShutdownGameController( );
 
 	SDL_window = NULL;
 }
@@ -1893,7 +1893,7 @@ IN_Restart
 */
 void IN_Restart( void )
 {
+	IN_ShutdownGameController();
 	IN_ShutdownJoystick( );
-	IN_ShutdownGameController( );
 	IN_Init( SDL_window );
 }
