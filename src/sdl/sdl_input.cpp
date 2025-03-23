@@ -624,7 +624,9 @@ static void IN_OpenGameController( int index )
 		Com_Printf("Product:          %.4x\n", SDL_GameControllerGetProduct(controller));
 		Com_Printf("Product Version:  %.4x\n", SDL_GameControllerGetProductVersion(controller));
 		Com_Printf("GUID:             %s\n"  , in_gamepadGUID->string);
+#if SDL_VERSION_ATLEAST(2, 0, 14)
 		Com_Printf("Serial Number:    %s\n"  , SDL_GameControllerGetSerial(controller));
+#endif
 #if 0 // debug
 		char *mapping = SDL_GameControllerMapping(controller);
 		Com_Printf("Mapping:          %s\n", mapping);
@@ -1066,7 +1068,9 @@ static void IN_ProcessEvents( int eventTime )
 				{
 					switch (e.cbutton.button) {
 					case SDL_CONTROLLER_BUTTON_A         : key = A_MOUSE1; break;
+#if SDL_VERSION_ATLEAST(2, 0, 14)
 					case SDL_CONTROLLER_BUTTON_TOUCHPAD  : key = A_MOUSE1; break;
+#endif
 					case SDL_CONTROLLER_BUTTON_DPAD_UP   : key = A_CURSOR_UP; break;
 					case SDL_CONTROLLER_BUTTON_DPAD_LEFT : key = A_CURSOR_LEFT; break;
 					case SDL_CONTROLLER_BUTTON_DPAD_DOWN : key = A_CURSOR_DOWN; break;
