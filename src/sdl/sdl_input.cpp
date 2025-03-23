@@ -559,6 +559,26 @@ static void IN_InitGameController( void )
 		}
 	}
 
+	Com_DPrintf("Loading gamescontrollerdb.txt...");
+	fileHandle_t fh;
+	int len = FS_SV_FOpenFileRead("gamecontrollerdb.txt", &fh, MODULE_SDL);
+	if (len > 0) {
+		void *buf = Z_Malloc(len, TAG_TEMP_WORKSPACE);
+		FS_Read(buf, len, fh, MODULE_SDL);
+		FS_FCloseFile(fh, MODULE_SDL);
+		SDL_RWops *rwops = SDL_RWFromConstMem(buf, len);
+		int num = SDL_GameControllerAddMappingsFromRW(rwops, 1);
+		if (num >= 0) {
+			Com_DPrintf(" added %d mappings\n", num);
+		} else {
+			Com_DPrintf(" failed!\n");
+			Com_Printf(S_COLOR_RED "ERROR: %s\n", SDL_GetError());
+		}
+		Z_Free(buf);
+	} else {
+		Com_DPrintf(" file not found\n");
+	}
+
 	total = SDL_NumJoysticks();
 	Com_DPrintf("%d possible gamepads\n", total);
 	padIndex = 0;

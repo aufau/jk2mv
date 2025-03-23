@@ -602,6 +602,7 @@ typedef enum {
 	MODULE_GAME,
 	MODULE_CGAME,
 	MODULE_UI,
+	MODULE_SDL,
 	MODULE_MAX
 } module_t;
 
