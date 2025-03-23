@@ -1610,7 +1610,7 @@ static void IN_PadMoveUI(int eventTime)
 	IN_PadMoveUIRS(eventTime);
 }
 
-static void IN_PadMove3D(int eventTime)
+static void IN_PadMoveSticks(int eventTime)
 {
 	// Process gamepad analogue inputs:
 	// 1. Filtering - not implemented
@@ -1620,8 +1620,6 @@ static void IN_PadMove3D(int eventTime)
 
 	float x, y;
 	float inner, outer;
-
-	SDL_GameControllerUpdate();
 
 	x = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_LEFTX);
 	y = - IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_LEFTY);
@@ -1640,11 +1638,17 @@ static void IN_PadMove3D(int eventTime)
 	IN_PadDeadzone(&x, &y, inner, outer, (qboolean)!!in_gamepadLSSquareDeadzone->integer);
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_YAW  , roundf(127 * x), 0, NULL);
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_PITCH, roundf(127 * y), 0, NULL);
+}
 
-	float rt = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+static void IN_PadMoveTriggers(int eventTime)
+{
+	float inner, outer;
+	float rt, lt;
+
+	rt = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
 	IN_PadGetRTDeadzone(&inner, &outer);
 	IN_PadDeadzoneAxis(&rt, inner, outer);
-	float lt = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_TRIGGERLEFT);
+	lt = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_TRIGGERLEFT);
 	IN_PadGetLTDeadzone(&inner, &outer);
 	IN_PadDeadzoneAxis(&lt, inner, outer);
 
@@ -1695,13 +1699,18 @@ static void IN_PadMove(int eventTime)
 	if (!SDL_GameControllerGetAttached(in_pad.controller))
 		return;
 
-	int keycatcher = Key_GetCatcher();
+	SDL_GameControllerUpdate();
 
-	if (keycatcher & (KEYCATCH_UI | KEYCATCH_CGAME)) {
+	if (Key_GetCatcher() & (KEYCATCH_UI | KEYCATCH_CGAME)) {
 		IN_PadMoveUI(eventTime);
+		if (in_gamepadTriggersAxis->integer == 0) {
+			// send SE_KEY events for triggers so that binding works
+			IN_PadMoveTriggers(eventTime);
+		}
+	} else {
+		IN_PadMoveSticks(eventTime);
+		IN_PadMoveTriggers(eventTime);
 	}
-
-	IN_PadMove3D(eventTime);
 }
 
 void IN_Frame (void) {
