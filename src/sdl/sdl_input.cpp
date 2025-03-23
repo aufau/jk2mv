@@ -21,6 +21,7 @@ static cvar_t *in_joystickNo        = NULL;
 static cvar_t *in_joystickUseAnalog = NULL;
 
 static cvar_t *in_gamepad                   = NULL;
+static cvar_t *in_gamepadNo                 = NULL;
 static cvar_t *in_gamepadRSInvertX          = NULL;
 static cvar_t *in_gamepadRSInvertY          = NULL;
 static cvar_t *in_gamepadRSSquareDeadzone   = NULL;
@@ -486,10 +487,11 @@ static void IN_ShutdownGameController( void );
 
 static void IN_InitGameController( void )
 {
-	int	index;
+	int	index, padIndex;
 	int	total;
 
 	in_gamepad = Cvar_Get("in_gamepad", "1", CVAR_ARCHIVE | CVAR_GLOBAL | CVAR_LATCH);
+	in_gamepadNo = Cvar_Get("in_gamepadNo", "0", CVAR_TEMP | CVAR_LATCH);
 	// RS = Right Stick
 	in_gamepadRSInvertX = Cvar_Get("in_gamepadRSInvertX", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSInvertY = Cvar_Get("in_gamepadRSInvertY", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
@@ -535,14 +537,18 @@ static void IN_InitGameController( void )
 
 	controller = NULL;
 	total = SDL_NumJoysticks();
+	Com_DPrintf("%d possible gamepads\n", total);
+	padIndex = 0;
 	for (index = 0; index < total; index++) {
 		if (SDL_IsGameController(index)) {
-			controller = SDL_GameControllerOpen(index);
-			if (controller) {
+			if (padIndex == in_gamepadNo->integer) {
+				controller = SDL_GameControllerOpen(index);
+				if (!controller) {
+					Com_Printf(S_COLOR_YELLOW "WARNING: Failed to open gamepad %d: %s\n", index, SDL_GetError());
+				}
 				break;
-			} else {
-				Com_Printf(S_COLOR_YELLOW "WARNING: Failed to open gamepad %d: %s\n", index, SDL_GetError());
 			}
+			padIndex++;
 		}
 	}
 
