@@ -37,6 +37,7 @@ static cvar_t *in_gamepadLTInnerDeadzone    = NULL;
 static cvar_t *in_gamepadLTOuterDeadzone    = NULL;
 static cvar_t *in_gamepadRTInnerDeadzone    = NULL;
 static cvar_t *in_gamepadRTOuterDeadzone    = NULL;
+static cvar_t *in_gamepadTriggersAxis       = NULL;
 
 
 static SDL_Window *SDL_window = NULL;
@@ -523,6 +524,7 @@ static void IN_InitGameController( void )
 	in_gamepadRTInnerDeadzone->modified = qtrue; // validate next frame
 	in_gamepadRTOuterDeadzone = Cvar_Get("in_gamepadRTOuterDeadzone", XSTR(GAMEPAD_DEF_OUTER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRTOuterDeadzone->modified = qtrue; // validate next frame
+	in_gamepadTriggersAxis = Cvar_Get("in_gamepadTriggersAxis", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 
 	if (!in_gamepad->integer) {
 		IN_ShutdownGameController();
@@ -588,7 +590,7 @@ static void IN_OpenGameController( int index )
 	}
 #if 0
 	SDL_GameControllerType type = SDL_GameControllerGetType(controller);
-	assert(SDL_CONTROLLER_BUTTON_MAX < 32);
+	assert(SDL_CONTROLLER_BUTTON_MAX < 30); // two reserved for trigger buttons
 	for (int i = 0; i < SDL_CONTROLLER_BUTTON_MAX; i++) {
 		const char *uiName = IN_PadButtonUIName(type, (SDL_GameControllerButton)i);
 		if (uiName) {
@@ -1625,13 +1627,54 @@ static void IN_PadMove3D(int eventTime)
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_YAW  , roundf(127 * x), 0, NULL);
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_PITCH, roundf(127 * y), 0, NULL);
 
-	x = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+	float rt = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
 	IN_PadGetRTDeadzone(&inner, &outer);
-	IN_PadDeadzoneAxis(&x, inner, outer);
-	y = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_TRIGGERLEFT);
+	IN_PadDeadzoneAxis(&rt, inner, outer);
+	float lt = IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_TRIGGERLEFT);
 	IN_PadGetLTDeadzone(&inner, &outer);
-	IN_PadDeadzoneAxis(&y, inner, outer);
-	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_UP, roundf(127 * (x - y)), 0, NULL);
+	IN_PadDeadzoneAxis(&lt, inner, outer);
+
+	static qboolean rtDown = qfalse;
+	static qboolean ltDown = qfalse;
+
+	switch (in_gamepadTriggersAxis->integer) {
+	case 0: // triggers act as A_JOY30 and A_JOY31 buttons
+		if (rt > 0.0f) {
+			if (!rtDown) {
+				rtDown = qtrue;
+				Sys_QueEvent(eventTime, SE_KEY, A_JOY30, qtrue, 0, NULL);
+			}
+		} else {
+			if (rtDown) {
+				rtDown = qfalse;
+				Sys_QueEvent(eventTime, SE_KEY, A_JOY30, qfalse, 0, NULL);
+			}
+		}
+		if (lt > 0.0f) {
+			if (!ltDown) {
+				ltDown = qtrue;
+				Sys_QueEvent(eventTime, SE_KEY, A_JOY31, qtrue, 0, NULL);
+			}
+		} else {
+			if (ltDown) {
+				ltDown = qfalse;
+				Sys_QueEvent(eventTime, SE_KEY, A_JOY31, qfalse, 0, NULL);
+			}
+		}
+		break;
+	case  1:
+		Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_UP, roundf(127 * (rt - lt)), 0, NULL);
+		break;
+	case -1:
+		Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_UP, roundf(127 * (lt - rt)), 0, NULL);
+		break;
+	case 2:
+		Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_ROLL, roundf(127 * (rt - lt)), 0, NULL);
+		break;
+	case -2:
+		Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_ROLL, roundf(127 * (lt - rt)), 0, NULL);
+		break;
+	}
 }
 
 static void IN_PadMove(int eventTime)
@@ -1645,9 +1688,9 @@ static void IN_PadMove(int eventTime)
 
 	if (keycatcher & (KEYCATCH_UI | KEYCATCH_CGAME)) {
 		IN_PadMoveUI(eventTime);
-	} else {
-		IN_PadMove3D(eventTime);
 	}
+
+	IN_PadMove3D(eventTime);
 }
 
 void IN_Frame (void) {
