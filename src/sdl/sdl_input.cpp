@@ -39,6 +39,7 @@ static cvar_t *in_gamepadUIHack             = NULL;
 static cvar_t *in_gamepadUISensitivity      = NULL;
 static cvar_t *in_gamepadRSInvertX          = NULL;
 static cvar_t *in_gamepadRSInvertY          = NULL;
+static cvar_t *in_gamepadRSAccel            = NULL;
 static cvar_t *in_gamepadRSSquareDeadzone   = NULL;
 static cvar_t *in_gamepadRSInnerDeadzone    = NULL;
 static cvar_t *in_gamepadRSOuterDeadzone    = NULL;
@@ -516,6 +517,7 @@ static void IN_InitGameController( void )
 	// RS = Right Stick
 	in_gamepadRSInvertX = Cvar_Get("in_gamepadRSInvertX", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSInvertY = Cvar_Get("in_gamepadRSInvertY", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
+	in_gamepadRSAccel = Cvar_Get("in_gamepadRSAccel", "1", CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSSquareDeadzone = Cvar_Get("in_gamepadRSSquareDeadzone", "0", CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSInnerDeadzone = Cvar_Get("in_gamepadRSInnerDeadzone", XSTR(GAMEPAD_DEF_INNER_DEADZONE), CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadRSInnerDeadzone->modified = qtrue; // validate next frame
@@ -1513,6 +1515,32 @@ static void IN_PadGetRTDeadzone(float *innerp, float *outerp)
 	*outerp = outer;
 }
 
+static void IN_PadShapeStick(float *inX, float *inY, float accel)
+{
+	// Apply exponential curve to axis tilt value. This must be called
+	// on the square input, after deadzonning.
+
+	if (accel == 1.0f)
+		return;
+
+	float x = *inX;
+	float y = *inY;
+
+	accel = Com_Clamp(0.1f, 10.0f, accel);
+	float tilt = MAX(fabsf(x), fabsf(y)); // in [0,1] range
+	if (tilt == 0)
+		return;
+	float scale = powf(tilt, accel) / tilt;
+
+	// just in case...
+	if (!isnormal(scale))
+		scale = 0.0f;
+
+	// clamp any numerical errors
+	*inX = Com_Clamp(-1.0f, 1.0f, scale * x);
+	*inY = Com_Clamp(-1.0f, 1.0f, scale * y);
+}
+
 static void IN_PadMoveUILS(int eventTime)
 {
 	int deltaTime = eventTime - in_pad.lastLSEventTime;
@@ -1637,6 +1665,7 @@ static void IN_PadMoveSticks(int eventTime)
 		y = -y;
 	IN_PadGetRSDeadzone(&inner, &outer);
 	IN_PadDeadzoneStick(&x, &y, inner, outer, (qboolean)!!in_gamepadRSSquareDeadzone->integer);
+	IN_PadShapeStick(&x, &y, in_gamepadRSAccel->value);
 
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_YAW  , roundf(127 * x), 0, NULL);
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_PITCH, roundf(127 * y), 0, NULL);
