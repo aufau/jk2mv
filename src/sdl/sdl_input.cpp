@@ -1625,6 +1625,7 @@ static void IN_PadMoveSticks(int eventTime)
 	y = - IN_SDLControllerGetAxis(SDL_CONTROLLER_AXIS_LEFTY);
 	IN_PadGetLSDeadzone(&inner, &outer);
 	IN_PadDeadzoneStick(&x, &y, inner, outer, (qboolean)!!in_gamepadLSSquareDeadzone->integer);
+
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_SIDE   , roundf(127 * x), 0, NULL);
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_FORWARD, roundf(127 * y), 0, NULL);
 
@@ -1635,7 +1636,7 @@ static void IN_PadMoveSticks(int eventTime)
 	if (in_gamepadRSInvertY->integer)
 		y = -y;
 	IN_PadGetRSDeadzone(&inner, &outer);
-	IN_PadDeadzoneStick(&x, &y, inner, outer, (qboolean)!!in_gamepadLSSquareDeadzone->integer);
+	IN_PadDeadzoneStick(&x, &y, inner, outer, (qboolean)!!in_gamepadRSSquareDeadzone->integer);
 
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_YAW  , roundf(127 * x), 0, NULL);
 	Sys_QueEvent(eventTime, SE_JOYSTICK_AXIS, AXIS_PITCH, roundf(127 * y), 0, NULL);
