@@ -471,11 +471,13 @@ static void IN_InitJoystick( void )
 	SDL_JoystickEventState(SDL_QUERY);
 }
 
+#if 0
 static const char * IN_PadButtonUIName(SDL_GameControllerType type, SDL_GameControllerButton button)
 {
 	// TODO: load mapping from file
 	return SDL_GameControllerGetStringForButton(button);
 }
+#endif
 
 #define GAMEPAD_DEF_INNER_DEADZONE 0.1
 #define GAMEPAD_DEF_OUTER_DEADZONE 1.0
@@ -566,7 +568,7 @@ static void IN_InitGameController( void )
 		SDL_free(mapping);
 #endif
 	}
-
+#if 0
 	if (controller) {
 		SDL_GameControllerType type = SDL_GameControllerGetType(controller);
 		assert(SDL_CONTROLLER_BUTTON_MAX < 32);
@@ -577,6 +579,7 @@ static void IN_InitGameController( void )
 			}
 		}
 	}
+#endif
 }
 
 void IN_Init( void *windowData )
@@ -1538,10 +1541,11 @@ IN_ShutdownGameController
 */
 static void IN_ShutdownGameController( void )
 {
+#if 0
 	for (int i = 0; i < 32; i++) {
 		keynames[A_JOY0 + i].uiName = NULL;
 	}
-
+#endif
 	if (!SDL_WasInit(SDL_INIT_GAMECONTROLLER)) {
 		return;
 	}
