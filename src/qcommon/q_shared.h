@@ -516,6 +516,10 @@ ID_INLINE int Com_Clampi( int min, int max, int value ) {
 	return value;
 }
 
+ID_INLINE int Com_Maxi( int a, int b ) {
+	return a > b ? a : b;
+}
+
 #define CIN_system	1
 #define CIN_loop	2
 #define	CIN_hold	4

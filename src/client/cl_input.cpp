@@ -369,6 +369,9 @@ cvar_t	*cl_pitchspeed;
 
 cvar_t	*cl_run;
 cvar_t	*cl_autoWalkButton;
+cvar_t	*cl_joystickAnalogMove;
+cvar_t	*cl_joystickWalkThreshold;
+cvar_t	*cl_joystickRunThreshold;
 
 cvar_t	*cl_anglespeedkey;
 
@@ -461,6 +464,51 @@ void CL_MouseEvent( int dx, int dy, int time ) {
 	}
 }
 
+static void Cl_JoystickAxesToKeys(int side, int forward, int * sKey, int * fKey)
+{
+	// There are 4 lines coming though 0 at angles: 67.5, 22.5, -22.5,
+	// -67.5 that partition input space into 8 even regions. Each region
+	// corresponds to one movement direction
+
+	const float tan_pi_by_8  = 0.414213562f; // 22.5 degrees
+	const float tan_3pi_by_8 = 2.414213562f; // 67.5 degrees
+
+	qboolean below1 = (qboolean)(forward <  side * tan_3pi_by_8); // 1 o'clock
+	qboolean below2 = (qboolean)(forward <  side * tan_pi_by_8 ); // 2 o'clock
+	qboolean below3 = (qboolean)(forward < -side * tan_pi_by_8 ); // 4 o'clock
+	qboolean below4 = (qboolean)(forward < -side * tan_3pi_by_8); // 5 o'clock
+
+	if        ( !below1            &&            !below4 ) {
+		*fKey =  1;
+		*sKey =  0;
+	} else if (  below1 && !below2                       ) {
+		*fKey =  1;
+		*sKey =  1;
+	} else if (             below2 && !below3            ) {
+		*fKey =  0;
+		*sKey =  1;
+	} else if (                        below3 && !below4 ) {
+		*fKey = -1;
+		*sKey =  1;
+	} else if (  below1            &&             below4 ) {
+		*fKey = -1;
+		*sKey =  0;
+	} else if ( !below1 &&  below2                       ) {
+		*fKey = -1;
+		*sKey = -1;
+	} else if (            !below2 &&  below3            ) {
+		*fKey =  0;
+		*sKey = -1;
+	} else if (                       !below3 &&  below4 ) {
+		*fKey =  1;
+		*sKey = -1;
+	} else {
+		*fKey = 0;
+		*sKey = 0;
+		assert(side == 0 && forward == 0);
+	}
+}
+
 /*
 =================
 CL_JoystickEvent
@@ -489,8 +537,34 @@ void CL_JoystickMove( usercmd_t *cmd ) {
 		anglespeed = 0.001 * cls.frametime;
 	}
 
-	cmd->rightmove = ClampChar( cmd->rightmove + cl.joystickAxis[AXIS_SIDE] );
-	cmd->forwardmove = ClampChar( cmd->forwardmove + cl.joystickAxis[AXIS_FORWARD] );
+	if ( cl_joystickAnalogMove->integer ) {
+		cmd->rightmove = ClampChar( cmd->rightmove + cl.joystickAxis[AXIS_SIDE] );
+		cmd->forwardmove = ClampChar( cmd->forwardmove + cl.joystickAxis[AXIS_FORWARD] );
+	} else {
+		int side = cl.joystickAxis[AXIS_SIDE];
+		int forward = cl.joystickAxis[AXIS_FORWARD];
+		int tilt = Com_Maxi(abs(side), abs(forward));
+
+		if (tilt > 127 * cl_joystickWalkThreshold->value) {
+			int movespeed;
+			int joystickRun = (tilt > 127 * cl_joystickRunThreshold->value);
+
+			if ( joystickRun & (in_speed.active ^ cl_run->integer) ) {
+				movespeed = 127;
+				cmd->buttons &= ~BUTTON_WALKING;
+			} else {
+				cmd->buttons |= BUTTON_WALKING;
+				movespeed = 46;
+			}
+
+			int sideKey, forwardKey;
+			Cl_JoystickAxesToKeys(side, forward, &sideKey, &forwardKey);
+
+			cmd->rightmove = ClampChar( cmd->rightmove + movespeed * sideKey );
+			cmd->forwardmove = ClampChar( cmd->forwardmove + movespeed * forwardKey );
+		}
+	}
+
 
 	cl.viewangles[YAW] += anglespeed * cl.joystickAxis[AXIS_YAW];
 	cl.viewangles[PITCH] += anglespeed * cl.joystickAxis[AXIS_PITCH];
