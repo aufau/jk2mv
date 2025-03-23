@@ -22,6 +22,7 @@ static cvar_t *in_joystickUseAnalog = NULL;
 
 static cvar_t *in_gamepad                   = NULL;
 static cvar_t *in_gamepadNo                 = NULL;
+static cvar_t *in_gamepadGUID               = NULL;
 static cvar_t *in_gamepadUIHack             = NULL;
 static cvar_t *in_gamepadUISensitivity      = NULL;
 static cvar_t *in_gamepadRSInvertX          = NULL;
@@ -486,6 +487,7 @@ static const char * IN_PadButtonUIName(SDL_GameControllerType type, SDL_GameCont
 #define GAMEPAD_DEF_INNER_DEADZONE 0.1
 #define GAMEPAD_DEF_OUTER_DEADZONE 1.0
 
+static void IN_OpenGameController( int index );
 static void IN_ShutdownGameController( void );
 
 static void IN_InitGameController( void )
@@ -547,31 +549,36 @@ static void IN_InitGameController( void )
 	for (index = 0; index < total; index++) {
 		if (SDL_IsGameController(index)) {
 			if (padIndex == in_gamepadNo->integer) {
-				controller = SDL_GameControllerOpen(index);
-				if (!controller) {
-					Com_Printf(S_COLOR_YELLOW "WARNING: Failed to open gamepad %d: %s\n", index, SDL_GetError());
-				}
+				IN_OpenGameController(index);
 				break;
 			}
 			padIndex++;
 		}
 	}
+}
 
-	if (controller) {
-		Com_Printf("Gamepad %d opened\n", index);
-		Com_Printf("Name:             %s\n"  , SDL_GameControllerName(controller));
+static void IN_OpenGameController( int index )
+{
+	controller = SDL_GameControllerOpen(index);
+	if (!controller) {
+		Com_Printf(S_COLOR_YELLOW "WARNING: Failed to open gamepad %d: %s\n", index, SDL_GetError());
+		return;
 	}
 
-	if (controller && com_developer->integer) {
-		char	guid[128];
+	char	guid[128];
 
-		SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(index), guid, sizeof(guid));
+	SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(index), guid, sizeof(guid));
+	in_gamepadGUID = Cvar_Get("in_gamepadGUID", guid, CVAR_ROM );
 
+	Com_Printf("Gamepad %d opened\n", index);
+	Com_Printf("Name:             %s\n"  , SDL_GameControllerName(controller));
+
+	if (com_developer->integer) {
 		Com_Printf("Player:           %d\n"  , SDL_GameControllerGetPlayerIndex(controller));
 		Com_Printf("Vendor:           %.4x\n", SDL_GameControllerGetVendor(controller));
 		Com_Printf("Product:          %.4x\n", SDL_GameControllerGetProduct(controller));
 		Com_Printf("Product Version:  %.4x\n", SDL_GameControllerGetProductVersion(controller));
-		Com_Printf("GUID:             %s\n"  , guid);
+		Com_Printf("GUID:             %s\n"  , in_gamepadGUID->string);
 		Com_Printf("Serial Number:    %s\n"  , SDL_GameControllerGetSerial(controller));
 #if 0 // debug
 		char *mapping = SDL_GameControllerMapping(controller);
@@ -580,14 +587,12 @@ static void IN_InitGameController( void )
 #endif
 	}
 #if 0
-	if (controller) {
-		SDL_GameControllerType type = SDL_GameControllerGetType(controller);
-		assert(SDL_CONTROLLER_BUTTON_MAX < 32);
-		for (int i = 0; i < SDL_CONTROLLER_BUTTON_MAX; i++) {
-			const char *uiName = IN_PadButtonUIName(type, (SDL_GameControllerButton)i);
-			if (uiName) {
-				keynames[A_JOY0 + i].uiName = uiName;
-			}
+	SDL_GameControllerType type = SDL_GameControllerGetType(controller);
+	assert(SDL_CONTROLLER_BUTTON_MAX < 32);
+	for (int i = 0; i < SDL_CONTROLLER_BUTTON_MAX; i++) {
+		const char *uiName = IN_PadButtonUIName(type, (SDL_GameControllerButton)i);
+		if (uiName) {
+			keynames[A_JOY0 + i].uiName = uiName;
 		}
 	}
 #endif
@@ -1032,14 +1037,24 @@ static void IN_ProcessEvents( int eventTime )
 			break;
 
 			case SDL_CONTROLLERDEVICEADDED:
-			case SDL_CONTROLLERDEVICEREMOVED:
-			case SDL_CONTROLLERDEVICEREMAPPED:
-				{
-					for (int axis = 0; axis < MAX_JOYSTICK_AXIS; axis++) {
-						Sys_QueEvent( eventTime, SE_JOYSTICK_AXIS, axis, 0, 0, NULL);
+				if (controller && !SDL_GameControllerGetAttached(controller)) {
+					char	guid[128];
+
+					SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(e.cdevice.which), guid, sizeof(guid));
+					if (!strcmp(in_gamepadGUID->string, guid)) {
+						SDL_GameControllerClose(controller);
+						IN_OpenGameController(e.cdevice.which);
 					}
 				}
-				break;
+				// fallthrough
+			case SDL_CONTROLLERDEVICEREMOVED:
+			case SDL_CONTROLLERDEVICEREMAPPED:
+			{
+				for (int axis = 0; axis < MAX_JOYSTICK_AXIS; axis++) {
+					Sys_QueEvent( eventTime, SE_JOYSTICK_AXIS, axis, 0, 0, NULL);
+				}
+			}
+			break;
 
 			case SDL_QUIT:
 				Cbuf_ExecuteText(EXEC_NOW, "quit Closed window\n");
