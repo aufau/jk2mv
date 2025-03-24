@@ -1792,7 +1792,7 @@ static void IN_PadMove(int eventTime)
 
 	SDL_GameControllerUpdate();
 
-	if (Key_GetCatcher() & (KEYCATCH_UI | KEYCATCH_CGAME)) {
+	if (Key_GetCatcher() & (KEYCATCH_UI | KEYCATCH_CGAME | KEYCATCH_CONSOLE)) {
 		IN_PadMoveUI(eventTime);
 		if (in_gamepadTriggersAxis->integer == 0) {
 			// send SE_KEY events for triggers so that binding works
