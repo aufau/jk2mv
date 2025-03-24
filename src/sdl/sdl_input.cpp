@@ -1580,7 +1580,7 @@ static void IN_PadShapeStick(float *inX, float *inY, int curve, float accel)
 	case 2: // exponential curve
 		// f(x) = (A^t - 1)/(A - 1); f(0) = 0; f(1) = 1
 		A = Com_Clamp(0.1f, 10.0f, accel);
-		A = 1.0f + A * A * A; // A in [1,1001] range
+		A = expf(0.7f * A); // A in [1.07,1097] range
 		newTilt = (powf(A, t) - 1) / (A - 1);
 		break;
 	default:
