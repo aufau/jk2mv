@@ -472,7 +472,8 @@ static void IN_InitJoystick( void )
 
 	in_joystickThreshold = Cvar_Get( "joy_threshold", "0.15", CVAR_ARCHIVE | CVAR_GLOBAL);
 
-	stick = SDL_JoystickOpen( in_joystickNo->integer );
+	if ( !in_pad.controller )
+		stick = SDL_JoystickOpen( in_joystickNo->integer );
 
 	if (stick == NULL) {
 		Com_DPrintf( "No joystick opened.\n" );
@@ -511,7 +512,6 @@ static void IN_InitGameController( void )
 	int	index, padIndex;
 	int	total;
 
-	in_gamepad = Cvar_Get("in_gamepad", "1", CVAR_ARCHIVE | CVAR_GLOBAL | CVAR_LATCH);
 	in_gamepadNo = Cvar_Get("in_gamepadNo", "0", CVAR_TEMP | CVAR_LATCH);
 	in_gamepadUIHack = Cvar_Get("in_gamepadUIHack", "1", CVAR_ARCHIVE | CVAR_GLOBAL);
 	in_gamepadUISensitivity = Cvar_Get("in_gamepadUISensitivity", "5", CVAR_ARCHIVE | CVAR_GLOBAL);
@@ -593,6 +593,8 @@ static void IN_InitGameController( void )
 			padIndex++;
 		}
 	}
+	if (!in_pad.controller)
+		Com_DPrintf("No gamepad opened.\n");
 }
 
 static void IN_CloseGameController( void )
@@ -603,7 +605,8 @@ static void IN_CloseGameController( void )
 
 static void IN_OpenGameController( int index )
 {
-	in_pad.controller = SDL_GameControllerOpen(index);
+	if ( !stick )
+		in_pad.controller = SDL_GameControllerOpen(index);
 	if (!in_pad.controller) {
 		Com_Printf(S_COLOR_YELLOW "WARNING: Failed to open gamepad %d: %s\n", index, SDL_GetError());
 		return;
@@ -661,6 +664,7 @@ void IN_Init( void *windowData )
 	in_keyboardDebug = Cvar_Get( "in_keyboardDebug", "0", CVAR_TEMP );
 
 	in_joystick = Cvar_Get( "in_joystick", "0", CVAR_ARCHIVE | CVAR_GLOBAL | CVAR_LATCH );
+	in_gamepad = Cvar_Get("in_gamepad", "1", CVAR_ARCHIVE | CVAR_GLOBAL | CVAR_LATCH);
 
 	// mouse variables
 	in_mouse = Cvar_Get( "in_mouse", "1", CVAR_ARCHIVE | CVAR_GLOBAL);
@@ -701,8 +705,8 @@ void IN_Init( void *windowData )
 	Cvar_SetValue( "com_unfocused", ( appState & SDL_WINDOW_INPUT_FOCUS ) == 0 );
 	Cvar_SetValue( "com_minimized", ( appState & SDL_WINDOW_MINIMIZED ) != 0 );
 
-	IN_InitJoystick( );
 	IN_InitGameController( );
+	IN_InitJoystick( );
 
 	Com_DPrintf( "------------------------------------\n" );
 }
