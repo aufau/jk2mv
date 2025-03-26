@@ -903,19 +903,19 @@ intptr_t CL_UISystemCalls(intptr_t *args) {
 		return 0;
 
 	case UI_KEY_KEYNUMTOSTRINGBUF:
-		Key_KeynumToStringBuf(Key_GetProtocolKey15(VM_GetGameversion(uivm), args[1]), VMAP(2, char, args[3]), args[3]); // 1.02 keynums -> 1.04 keynums
+		Key_KeynumToStringBuf(Key_GetInternalKey(VM_GetGameversion(uivm), args[1]), VMAP(2, char, args[3]), args[3]); // 1.02 keynums -> 1.04 keynums
 		return 0;
 
 	case UI_KEY_GETBINDINGBUF:
-		Key_GetBindingBuf(Key_GetProtocolKey15(VM_GetGameversion(uivm), args[1]), VMAP(2, char, args[3]), args[3]); // 1.02 keynums -> 1.04 keynums
+		Key_GetBindingBuf(Key_GetInternalKey(VM_GetGameversion(uivm), args[1]), VMAP(2, char, args[3]), args[3]); // 1.02 keynums -> 1.04 keynums
 		return 0;
 
 	case UI_KEY_SETBINDING:
-		Key_SetBinding(Key_GetProtocolKey15(VM_GetGameversion(uivm), args[1]), VMAS(2)); // 1.02 keynums -> 1.04 keynums
+		Key_SetBinding(Key_GetInternalKey(VM_GetGameversion(uivm), args[1]), VMAS(2)); // 1.02 keynums -> 1.04 keynums
 		return 0;
 
 	case UI_KEY_ISDOWN:
-		return Key_IsDown(Key_GetProtocolKey15(VM_GetGameversion(uivm), args[1])); // 1.02 keynums -> 1.04 keynums
+		return Key_IsDown(Key_GetInternalKey(VM_GetGameversion(uivm), args[1])); // 1.02 keynums -> 1.04 keynums
 
 	case UI_KEY_GETOVERSTRIKEMODE:
 		return Key_GetOverstrikeMode();

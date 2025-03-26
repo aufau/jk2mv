@@ -7,8 +7,6 @@ key up events are sent even if in console mode
 
 */
 
-int Key_GetProtocolKey(mvversion_t protocol, int key16);
-
 field_t		chatField;
 qboolean	chat_team;
 
@@ -2224,42 +2222,63 @@ static mvKeyconversion_t mvKeyconversion[] =
 };
 static int mvKeyconversionCount = sizeof(mvKeyconversion) / sizeof(mvKeyconversion[0]);
 
-
-int Key_GetProtocolKey_New(mvversion_t version, int key, qboolean to15, qboolean invert) {
-	int i;
+int Key_GetProtocolKey(mvversion_t protocol, int key) {
+	// Converts fakeAscii_t key to protocol key (1.02, 1.03, 1.04)
 
 	// We don't need to convert anything if we're not dealing with 1.02, cause internally we use the 1.03/1.04 values
-	if ( version != VERSION_1_02 )
+	if ( protocol != VERSION_1_02 )
 		return key;
 
-	// Char events don't need conversion
+	// Char events don't need conversion. These are only created
+	// internally so we can trust they are ascii chars
 	if ( key & K_CHAR_FLAG )
 		return key;
 
-	for ( i = 0; i < mvKeyconversionCount; i++ )
-	{ // Find matching key
-		if ( (key == mvKeyconversion[i].key16 && to15) || (key == mvKeyconversion[i].key15 && !to15) )
-		{ // Found a match
-			return (to15 ? (int)mvKeyconversion[i].key15 : (int)mvKeyconversion[i].key16);
+	if ( key > 32 && key < 127 )
+		return key;
+
+	for ( int i = 0; i < mvKeyconversionCount; i++ )
+	{
+		if ( key == mvKeyconversion[i].key16 )
+		{
+			return (int)mvKeyconversion[i].key15;
 		}
 	}
 
-	// Prevent double entries for 1.02 (Example: if 1.02 asks for K_CTRL it will be as if it asked for A_CTRL, if 1.02 asks for something that has the same number as A_CTRL it will count as A_CTRL, too: the CTRL key is handled twice. Solution: check if key would get altered by the inverse replacement).
-	if ( !invert && Key_GetProtocolKey_New( version, key, (qboolean)!to15, qtrue ) != key ) return -1;
+	// A_ keys that have no mapping to K_ key go there, for example
+	// A_PRINTSCREEN
 
-	// Limit the maximum
-	if ( (to15 && key >= K_LAST_KEY) || (!to15 && key >= MAX_KEYS) ) return -1;
-
-	// Return the key unmodified
-	return key;
+	return -1;
 }
 
-int Key_GetProtocolKey(mvversion_t version, int key16) {
-	// Converts key16 to key15 (if not on 1.02)
-	return Key_GetProtocolKey_New(version, key16, qtrue, qfalse);
-}
+int Key_GetInternalKey(mvversion_t protocol, int key) {
+	// Converts protocol key (1.02, 1.03, 1.04 to fakeAscii_t
 
-int Key_GetProtocolKey15(mvversion_t version, int key15) {
-	// Converts key15 to key16 (if not on 1.02)
-	return Key_GetProtocolKey_New(version, key15, qfalse, qfalse);
+	// We don't need to convert anything if we're not dealing with 1.02, cause internally we use the 1.03/1.04 values
+	if ( protocol != VERSION_1_02 )
+		return key;
+
+	if ( key > 32 && key < 127 ) {
+		return key;
+	}
+
+	for ( int i = 0; i < mvKeyconversionCount; i++ )
+	{
+		if ( key == mvKeyconversion[i].key15 )
+		{
+			return (int)mvKeyconversion[i].key16;
+		}
+	}
+
+	// K_ keycodes that have no maping to A_ return -1, for example
+	// K_COMMAND
+
+	// Keycodes that have no K_ enum but were bindable in 1.02 return
+	// -1, for example 1, 2, 3
+
+	// Invalid K_ keycodes (outside of 0, MAX_KEYS range) also go
+	// there. These keys were also somewhat bindable in 1.02 engine
+	// via array overflow.
+
+	return -1;
 }

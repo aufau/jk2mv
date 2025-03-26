@@ -906,7 +906,7 @@ intptr_t CL_CgameSystemCalls(intptr_t *args) {
 	case CG_MEMORY_REMAINING:
 		return Hunk_MemoryRemaining();
   case CG_KEY_ISDOWN:
-		return Key_IsDown( Key_GetProtocolKey15(VM_GetGameversion(cgvm), args[1]) ); // 1.02 keynums -> 1.04 keynums
+		return Key_IsDown( Key_GetInternalKey(VM_GetGameversion(cgvm), args[1]) ); // 1.02 keynums -> 1.04 keynums
   case CG_KEY_GETCATCHER:
 		return Key_GetCatcher();
   case CG_KEY_SETCATCHER:
