@@ -1872,6 +1872,7 @@ Called by the system for both key up and key down events
 void CL_KeyEvent (int key, qboolean down, int time) {
 	const char	*kb;
 	char		cmd[1024];
+	int			protocolKey;
 
 	// update auto-repeat status and BUTTON_ANY status
 	kg.keys[ keynames[key].upper ].down = down;
@@ -1952,7 +1953,10 @@ void CL_KeyEvent (int key, qboolean down, int time) {
 			return;
 		}
 
-		VM_Call(uivm, UI_KEY_EVENT, Key_GetProtocolKey(VM_GetGameversion(uivm), key), down);
+		protocolKey = Key_GetProtocolKey(VM_GetGameversion(uivm), key);
+		if (protocolKey != -1) {
+			VM_Call(uivm, UI_KEY_EVENT, protocolKey, down);
+		}
 		return;
 	}
 
@@ -1968,9 +1972,15 @@ void CL_KeyEvent (int key, qboolean down, int time) {
 		CL_AddKeyUpCommands( key, kb, time );
 
 		if ( cls.keyCatchers & KEYCATCH_UI && uivm ) {
-			VM_Call(uivm, UI_KEY_EVENT, Key_GetProtocolKey(VM_GetGameversion(uivm), key), down);
+			protocolKey = Key_GetProtocolKey(VM_GetGameversion(uivm), key);
+			if (protocolKey != -1) {
+				VM_Call(uivm, UI_KEY_EVENT, protocolKey, down);
+			}
 		} else if ( cls.keyCatchers & KEYCATCH_CGAME && cgvm ) {
-			VM_Call(cgvm, CG_KEY_EVENT, Key_GetProtocolKey(VM_GetGameversion(cgvm), key), down);
+			protocolKey = Key_GetProtocolKey(VM_GetGameversion(cgvm), key);
+			if (protocolKey != -1) {
+				VM_Call(cgvm, CG_KEY_EVENT, protocolKey, down);
+			}
 		}
 
 		return;
@@ -1982,11 +1992,17 @@ void CL_KeyEvent (int key, qboolean down, int time) {
 		Console_Key( key );
 	} else if ( cls.keyCatchers & KEYCATCH_UI ) {
 		if ( uivm ) {
-			VM_Call(uivm, UI_KEY_EVENT, Key_GetProtocolKey(VM_GetGameversion(uivm), key), down);
+			protocolKey = Key_GetProtocolKey(VM_GetGameversion(uivm), key);
+			if (protocolKey != -1) {
+				VM_Call(uivm, UI_KEY_EVENT, protocolKey, down);
+			}
 		}
 	} else if ( cls.keyCatchers & KEYCATCH_CGAME ) {
 		if ( cgvm ) {
-			VM_Call(cgvm, CG_KEY_EVENT, Key_GetProtocolKey(VM_GetGameversion(cgvm), key), down);
+			protocolKey = Key_GetProtocolKey(VM_GetGameversion(cgvm), key);
+			if (protocolKey != -1) {
+				VM_Call(cgvm, CG_KEY_EVENT, protocolKey, down);
+			}
 		}
 	} else if ( cls.keyCatchers & KEYCATCH_MESSAGE ) {
 		Message_Key( key );
