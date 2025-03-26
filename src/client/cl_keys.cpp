@@ -1363,7 +1363,7 @@ Key_IsDown
 ===================
 */
 qboolean Key_IsDown( int keynum ) {
-	if ( keynum == -1 ) {
+	if ( keynum < 0 || keynum >= MAX_KEYS ) {
 		return qfalse;
 	}
 
@@ -1576,7 +1576,7 @@ Key_SetBinding
 ===================
 */
 void Key_SetBinding( int keynum, const char *binding ) {
-	if ( keynum == -1 ) {
+	if ( keynum < 0 || keynum >= MAX_KEYS ) {
 		return;
 	}
 
