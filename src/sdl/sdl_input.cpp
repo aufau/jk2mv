@@ -1082,6 +1082,8 @@ static void IN_ProcessEvents( int eventTime )
 					case SDL_CONTROLLER_BUTTON_DPAD_LEFT : key = A_CURSOR_LEFT; nav = qtrue; break;
 					case SDL_CONTROLLER_BUTTON_DPAD_DOWN : key = A_CURSOR_DOWN; nav =  qtrue; break;
 					case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: key = A_CURSOR_RIGHT; nav = qtrue; break;
+					case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: key = A_CURSOR_UP; nav = qtrue; break;
+					case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: key = A_CURSOR_DOWN; nav = qtrue; break;
 					default: key = A_NULL; break;
 					}
 
