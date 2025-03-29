@@ -6,6 +6,7 @@
 
 struct in_gamepad_s {
 	SDL_GameController *controller;
+	qboolean buttonUINavigationActive;
 	qboolean rtDown;
 	qboolean ltDown;
 	float residual_dx;
@@ -1070,17 +1071,21 @@ static void IN_ProcessEvents( int eventTime )
 				if (in_gamepadUIHack->integer &&
 					Key_GetCatcher() & (KEYCATCH_UI | KEYCATCH_CGAME))
 				{
+					qboolean nav = in_pad.buttonUINavigationActive;
+
 					switch (e.cbutton.button) {
-					case SDL_CONTROLLER_BUTTON_A         : key = A_MOUSE1; break;
+					case SDL_CONTROLLER_BUTTON_A         : key = nav ? A_ENTER : A_MOUSE1; break;
 #if SDL_VERSION_ATLEAST(2, 0, 14)
 					case SDL_CONTROLLER_BUTTON_TOUCHPAD  : key = A_MOUSE1; break;
 #endif
-					case SDL_CONTROLLER_BUTTON_DPAD_UP   : key = A_CURSOR_UP; break;
-					case SDL_CONTROLLER_BUTTON_DPAD_LEFT : key = A_CURSOR_LEFT; break;
-					case SDL_CONTROLLER_BUTTON_DPAD_DOWN : key = A_CURSOR_DOWN; break;
-					case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: key = A_CURSOR_RIGHT; break;
+					case SDL_CONTROLLER_BUTTON_DPAD_UP   : key = A_CURSOR_UP; nav = qtrue; break;
+					case SDL_CONTROLLER_BUTTON_DPAD_LEFT : key = A_CURSOR_LEFT; nav = qtrue; break;
+					case SDL_CONTROLLER_BUTTON_DPAD_DOWN : key = A_CURSOR_DOWN; nav =  qtrue; break;
+					case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: key = A_CURSOR_RIGHT; nav = qtrue; break;
 					default: key = A_NULL; break;
 					}
+
+					in_pad.buttonUINavigationActive = nav;
 
 					if (key != A_NULL) {
 						Sys_QueEvent(eventTime, SE_KEY, key, down, 0, NULL);
@@ -1616,6 +1621,9 @@ static void IN_PadMoveUILS(int eventTime)
 	IN_PadGetLSDeadzone(&inner, &outer);
 	IN_PadDeadzoneStick(&x, &y, inner, outer, qtrue);
 
+	if (x != 0.0f || y != 0.0f)
+		in_pad.buttonUINavigationActive = qfalse;
+
 	in_pad.residual_dx += 0.2f * x * deltaTime * in_gamepadUISensitivity->value;
 	in_pad.residual_dy += 0.2f * y * deltaTime * in_gamepadUISensitivity->value;
 
@@ -1653,6 +1661,9 @@ static void IN_PadMoveUIRS(int eventTime)
 
 	IN_PadGetRSDeadzone(&inner, &outer);
 	IN_PadDeadzoneStick(&x, &y, inner, outer, qtrue);
+
+	if (x != 0.0f || y != 0.0f)
+		in_pad.buttonUINavigationActive = qfalse;
 
 	const float activeThreshold = 0.7f;
 	const float passiveThreshold = 0.4f;
