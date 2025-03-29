@@ -1674,11 +1674,11 @@ static void IN_PadMoveUIRS(int eventTime)
 		qboolean xEvent = qfalse;
 		if (x < -activeThreshold) {
 			xEvent = qtrue;
-			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELDOWN, qtrue, 0, NULL);
+			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELUP, qtrue, 0, NULL);
 		}
 		if (x >  activeThreshold) {
 			xEvent = qtrue;
-			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELUP, qtrue, 0, NULL);
+			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELDOWN, qtrue, 0, NULL);
 		}
 		if (xEvent) {
 			in_pad.nextRSXEventTime = in_pad.nextRSXEventTime ? eventTime + 50 : eventTime + 200;
