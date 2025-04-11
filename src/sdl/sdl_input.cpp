@@ -1075,6 +1075,7 @@ static void IN_ProcessEvents( int eventTime )
 
 					switch (e.cbutton.button) {
 					case SDL_CONTROLLER_BUTTON_A         : key = nav ? A_ENTER : A_MOUSE1; break;
+					case SDL_CONTROLLER_BUTTON_B         : key = A_MOUSE2; break; // force power UI widget uses mouse2 to unassign
 #if SDL_VERSION_ATLEAST(2, 0, 14)
 					case SDL_CONTROLLER_BUTTON_TOUCHPAD  : key = A_MOUSE1; break;
 #endif
