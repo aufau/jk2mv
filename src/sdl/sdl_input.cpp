@@ -599,14 +599,20 @@ static void IN_InitGameController( void )
 
 static void IN_CloseGameController( void )
 {
+	Com_DPrintf("Gamepad closed\n");
 	SDL_GameControllerClose(in_pad.controller);
 	memset(&in_pad, 0, sizeof(in_pad));
 }
 
 static void IN_OpenGameController( int index )
 {
-	if ( !stick )
-		in_pad.controller = SDL_GameControllerOpen(index);
+	if ( stick ) {
+		Com_DPrintf(S_COLOR_YELLOW "WARNING: Failed to open gamepad because a joystick is already opened\n");
+		return;
+	}
+
+	in_pad.controller = SDL_GameControllerOpen(index);
+
 	if (!in_pad.controller) {
 		Com_Printf(S_COLOR_YELLOW "WARNING: Failed to open gamepad %d: %s\n", index, SDL_GetError());
 		return;
