@@ -1716,12 +1716,6 @@ static void IN_PadMoveUIRS(int eventTime)
 	}
 }
 
-static void IN_PadMoveUI(int eventTime)
-{
-	IN_PadMoveUILS(eventTime);
-	IN_PadMoveUIRS(eventTime);
-}
-
 static void IN_PadMoveSticks(int eventTime)
 {
 	// Process gamepad analogue inputs:
@@ -1816,8 +1810,9 @@ static void IN_PadMove(int eventTime)
 
 	SDL_GameControllerUpdate();
 
-	if (Key_GetCatcher() & (KEYCATCH_UI | KEYCATCH_CGAME | KEYCATCH_CONSOLE)) {
-		IN_PadMoveUI(eventTime);
+	if (Key_GetCatcher()) {
+		IN_PadMoveUILS(eventTime);
+		IN_PadMoveUIRS(eventTime);
 		if (in_gamepadTriggersAxis->integer == 0) {
 			// send SE_KEY events for triggers so that binding works
 			IN_PadMoveTriggers(eventTime);
