@@ -1098,14 +1098,16 @@ static void IN_ProcessEvents( int eventTime )
 			break;
 
 			case SDL_CONTROLLERDEVICEADDED:
-				if (in_pad.controller && !SDL_GameControllerGetAttached(in_pad.controller)) {
-					char	guid[128];
-
-					SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(e.cdevice.which), guid, sizeof(guid));
-					if (!strcmp(in_gamepadGUID->string, guid)) {
+				// SDL gamecontroller subsystem is certainly initialised
+				if (in_pad.controller) {
+					// open controller if current was disconnected
+					if (!SDL_GameControllerGetAttached(in_pad.controller)) {
 						IN_CloseGameController();
 						IN_OpenGameController(e.cdevice.which);
 					}
+				} else {
+					// open first connected controller
+					IN_OpenGameController(e.cdevice.which);
 				}
 				// fallthrough
 			case SDL_CONTROLLERDEVICEREMOVED:
