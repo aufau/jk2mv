@@ -1676,10 +1676,12 @@ static void IN_PadMoveUIRS(int eventTime)
 		if (x < -activeThreshold) {
 			xEvent = qtrue;
 			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELUP, qtrue, 0, NULL);
+			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELUP, qfalse, 0, NULL);
 		}
 		if (x >  activeThreshold) {
 			xEvent = qtrue;
 			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELDOWN, qtrue, 0, NULL);
+			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELDOWN, qfalse, 0, NULL);
 		}
 		if (xEvent) {
 			in_pad.nextRSXEventTime = in_pad.nextRSXEventTime ? eventTime + 50 : eventTime + 200;
@@ -1693,10 +1695,12 @@ static void IN_PadMoveUIRS(int eventTime)
 		if (y < -activeThreshold) {
 			yEvent = qtrue;
 			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELUP, qtrue, 0, NULL);
+			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELUP, qfalse, 0, NULL);
 		}
 		if (y >  activeThreshold) {
 			yEvent = qtrue;
 			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELDOWN, qtrue, 0, NULL);
+			Sys_QueEvent(eventTime, SE_KEY, A_MWHEELDOWN, qfalse, 0, NULL);
 		}
 		if (yEvent) {
 			in_pad.nextRSYEventTime = in_pad.nextRSYEventTime ? eventTime + 50 : eventTime + 200;
