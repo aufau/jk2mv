@@ -35,7 +35,6 @@ static cvar_t *in_joystickUseAnalog = NULL;
 
 static cvar_t *in_gamepad                   = NULL;
 static cvar_t *in_gamepadNo                 = NULL;
-static cvar_t *in_gamepadGUID               = NULL;
 static cvar_t *in_gamepadUIHack             = NULL;
 static cvar_t *in_gamepadUISensitivity      = NULL;
 static cvar_t *in_gamepadRSInvertX          = NULL;
@@ -614,20 +613,19 @@ static void IN_OpenGameController( int index )
 	}
 
 	SDL_GameController *controller = in_pad.controller;
-	char	guid[128];
-
-	SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(index), guid, sizeof(guid));
-	in_gamepadGUID = Cvar_Get("in_gamepadGUID", guid, CVAR_ROM );
 
 	Com_Printf("Gamepad %d opened\n", index);
 	Com_Printf("Name:             %s\n"  , SDL_GameControllerName(controller));
 
 	if (com_developer->integer) {
+		char	guid[128];
+
+		SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(index), guid, sizeof(guid));
 		Com_Printf("Player:           %d\n"  , SDL_GameControllerGetPlayerIndex(controller));
 		Com_Printf("Vendor:           %.4x\n", SDL_GameControllerGetVendor(controller));
 		Com_Printf("Product:          %.4x\n", SDL_GameControllerGetProduct(controller));
 		Com_Printf("Product Version:  %.4x\n", SDL_GameControllerGetProductVersion(controller));
-		Com_Printf("GUID:             %s\n"  , in_gamepadGUID->string);
+		Com_Printf("GUID:             %s\n"  , guid);
 #if SDL_VERSION_ATLEAST(2, 0, 14)
 		Com_Printf("Serial Number:    %s\n"  , SDL_GameControllerGetSerial(controller));
 #endif
