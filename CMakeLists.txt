@@ -1,9 +1,4 @@
-cmake_minimum_required(VERSION 3.1.0)
-
-# Link directly against libGL.so instead of using GLVND
-if (${CMAKE_VERSION} VERSION_GREATER "3.11")
-	cmake_policy(SET CMP0072 OLD)
-endif()
+cmake_minimum_required(VERSION 3.1...3.31)
 
 # For checks in subdirectories
 set(InMV TRUE)
